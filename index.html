@@ -11,16 +11,16 @@
 		<meta property="og:title" content="3D Game on 𝕏 by Webduno + Grok">
 		<meta property="og:description" content="Interactive 3D Game demo Embedded on X (formerly Twitter) - click to interact! Made with Three.js">
 		<meta property="description" content="Interactive 3D Game demo Embedded on X (formerly Twitter) - click to interact! Made with Three.js">
-		<meta property="og:url" content="https://webduno.com/redbutton">
-		<meta property="og:image" content="https://webduno.com/redbutton/preview.png">
+		<meta property="og:url" content="https://grokgames.vercel.app">
+		<meta property="og:image" content="https://grokgames.vercel.app/previ.png">
 		<meta property="og:image:width" content="1200">
 		<meta property="og:image:height" content="630">
 		<meta property="og:image:alt" content="3D Interactive Embedded Game Demo">
-		<meta property="og:image:secure_url" content="https://webduno.com/redbutton/preview.png">
+		<meta property="og:image:secure_url" content="https://grokgames.vercel.app/previ.png">
 		<meta property="og:image:type" content="image/png">
 		<meta property="og:site_name" content="Webduno">
 		<meta property="og:locale" content="en_US">
-		<meta property="og:video" content="https://webduno.com/redbutton/demo.webm">
+		<meta property="og:video" content="https://grokgames.vercel.app/demo.webm">
 		<meta property="og:video:type" content="video/webm">
 		<meta property="og:video:width" content="640">
 		<meta property="og:video:height" content="360">
@@ -34,14 +34,14 @@
 		<!-- <meta name="twitter:card" content="summary_large_image"> -->
 		<meta name="twitter:card" content="player">
 		<meta name="twitter:site" content="@webduno">
-		<meta name="twitter:title" content="3D Game on 𝕏">
+		<meta name="twitter:title" content="Non Fungible Button">
 		<meta name="twitter:description" content="Interactive 3D button demo with Three.js - click to interact!">
-		<meta name="twitter:url" content="https://webduno.com/redbutton">
-		<meta name="twitter:image" content="https://webduno.com/redbutton/preview.png">
+		<meta name="twitter:url" content="https://grokgames.vercel.app">
+		<meta name="twitter:image" content="https://grokgames.vercel.app/previ.png">
 		<meta name="twitter:image:width" content="1200">
 		<meta name="twitter:image:height" content="630">
 		<meta name="twitter:image:alt" content="3D Interactive Button Demo">
-		<meta name="twitter:player" content="https://webduno.com/redbutton">
+		<meta name="twitter:player" content="https://grokgames.vercel.app">
 		<meta name="twitter:player:width" content="480">
 		<meta name="twitter:player:height" content="480">
 		<meta name="twitter:app:name:iphone" content="Webduno">
@@ -51,16 +51,31 @@
 		<meta name="twitter:creator" content="@webduno">
 		
 
-    <link type="text/css" rel="stylesheet" href="https://webduno.com/redbutton/main.css">
+    <link type="text/css" rel="stylesheet" href="https://grokgames.vercel.app/main.css">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+        
         body {
             background-color: #ffbb66;
             background: linear-gradient(45deg, #ffbb66, #66aaff);
             color: #444;
+            font-family: Arial, sans-serif;
         }
+        
         a {
             color: #08f;
         }
+        
         #score {
             position: fixed;
             bottom: 20px;
@@ -75,21 +90,104 @@
             /* font-weight: bold; */
             z-index: 1000;
         }
+        
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
     </style>
 </head>
 <body>
+    <div id="gpu-info" style="display:none;
+    position: fixed; top: 10px; left: 10px; background-color: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 5px; font-family: Arial, sans-serif; font-size: 12px; z-index: 1001; max-width: 300px;">
+        <div style="font-weight: bold; margin-bottom: 5px;">GPU Support Info:</div>
+        <div id="gpu-details">Checking...</div>
+    </div>
     <div id="score">Points: 0</div>
-    <script async src="https://webduno.com/redbutton/es-module-shims.js"></script>
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://webduno.com/redbutton/three.module.js"
-            }
-        }
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js" type="module"></script>
+
 
     <script type="module">
-        import * as THREE from 'three';
+        // Wait a moment for import map to be processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js';
+
+        // GPU Detection Function
+        function detectGPUInfo() {
+            const gpuDetails = document.getElementById('gpu-details');
+            let info = '';
+            
+            // Check if WebGL is supported
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            
+            if (!gl) {
+                info = '<span style="color: #ff4444;">❌ WebGL not supported</span>';
+                gpuDetails.innerHTML = info;
+                return;
+            }
+            
+            // Get WebGL info
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            let gpuName = 'Unknown GPU';
+            let vendorName = 'Unknown Vendor';
+            
+            if (debugInfo) {
+                gpuName = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                vendorName = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+            }
+            
+            // Get WebGL version
+            const webglVersion = gl.getParameter(gl.VERSION);
+            const shadingLanguageVersion = gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
+            
+            // Get max texture size
+            const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+            
+            // Check for specific GPU features
+            const extensions = gl.getSupportedExtensions();
+            const hasFloatTextures = extensions.includes('OES_texture_float');
+            const hasFloatLinear = extensions.includes('OES_texture_float_linear');
+            const hasHalfFloat = extensions.includes('OES_texture_half_float');
+            const hasHalfFloatLinear = extensions.includes('OES_texture_half_float_linear');
+            
+            // Performance estimation based on GPU name
+            let performance = 'Unknown';
+            const gpuNameLower = gpuName.toLowerCase();
+            
+            if (gpuNameLower.includes('nvidia') || gpuNameLower.includes('rtx') || gpuNameLower.includes('gtx')) {
+                performance = 'High';
+            } else if (gpuNameLower.includes('amd') || gpuNameLower.includes('radeon') || gpuNameLower.includes('rx')) {
+                performance = 'High';
+            } else if (gpuNameLower.includes('intel') && (gpuNameLower.includes('iris') || gpuNameLower.includes('uhd'))) {
+                performance = 'Medium';
+            } else if (gpuNameLower.includes('mali') || gpuNameLower.includes('powervr') || gpuNameLower.includes('adreno')) {
+                performance = 'Mobile';
+            } else if (gpuNameLower.includes('swiftshader') || gpuNameLower.includes('software')) {
+                performance = 'Software';
+            }
+            
+            // Build info string
+            info = `
+                <div style="margin-bottom: 5px;"><span style="color: #44ff44;">✅ WebGL Supported</span></div>
+                <div style="font-size: 10px; margin-bottom: 3px;"><strong>GPU:</strong> ${gpuName}</div>
+                <div style="font-size: 10px; margin-bottom: 3px;"><strong>Vendor:</strong> ${vendorName}</div>
+                <div style="font-size: 10px; margin-bottom: 3px;"><strong>WebGL:</strong> ${webglVersion}</div>
+                <div style="font-size: 10px; margin-bottom: 3px;"><strong>Shaders:</strong> ${shadingLanguageVersion}</div>
+                <div style="font-size: 10px; margin-bottom: 3px;"><strong>Max Texture:</strong> ${maxTextureSize}x${maxTextureSize}</div>
+                <div style="font-size: 10px; margin-bottom: 3px;"><strong>Performance:</strong> <span style="color: ${performance === 'High' ? '#44ff44' : performance === 'Medium' ? '#ffff44' : performance === 'Mobile' ? '#ff8844' : '#ff4444'}">${performance}</span></div>
+                <div style="font-size: 10px; margin-bottom: 3px;"><strong>Float Textures:</strong> ${hasFloatTextures ? '✅' : '❌'}</div>
+                <div style="font-size: 10px; margin-bottom: 3px;"><strong>Shader Support:</strong> <span style="color: #44ff44;">✅ Active</span></div>
+                <div style="font-size: 10px;"><strong>Extensions:</strong> ${extensions.length}</div>
+            `;
+            
+            gpuDetails.innerHTML = info;
+        }
+        
+        // Run GPU detection immediately
+        detectGPUInfo();
 
         let container;
         let camera, scene, raycaster, renderer;
@@ -106,11 +204,23 @@
         let missedCoins = 0;
         let startTime = Date.now();
 
-        const pointer = new THREE.Vector2();
+        const pointer = { x: 0, y: 0 };
         const radius = 100;
         
         // Bird color variable for easy customization
         const birdColor = 0x66aaff; // Lighter blue version of the button color
+
+        // TSL shader variables for bird effect
+        let birdShaderMaterial;
+        let isJumping = false;
+        let jumpStartTime = 0;
+
+        // Particle system for coin collection
+        let particleSystem;
+        let particleGeometry;
+        let particleMaterial;
+        let particles = [];
+        let activeParticles = [];
 
         // Coin array and parameters
         const coins = [];
@@ -118,6 +228,13 @@
         const coinSpeed = 0.1;
         const coinHeight = 20; // Starting height above red cube
         const coinRadius = 1;
+
+        // Tree array and parameters
+        const trees = [];
+        const maxTrees = 12; // More trees since they're on both sides
+        const treeSpeed = coinSpeed; // Same speed as coins
+        const treeHeight = 15; // Height for trees
+        const treeSpacing = 15; // Spacing between trees
 
         init();
         animate();
@@ -131,6 +248,10 @@
                     // Jump the bird when clicking anywhere
                     velocityY = jumpForce;
                 }
+                
+                // Activate TSL jump effect
+                isJumping = true;
+                jumpStartTime = Date.now();
                 
                 // Rotate wings by a small random amount
                 const leftWing = greenCube.children.find(child => child.scale.x === 10 && child.position.x < 0);
@@ -184,11 +305,11 @@
             light.shadow.camera.bottom = -50;
             scene.add(light);
 
-            // Red cube
-            const redGeometry = new THREE.BoxGeometry(30, 10, 20);
-            redCube = new THREE.Mesh(redGeometry, new THREE.MeshLambertMaterial({ color: 0xff4444 }));
-            redCube.position.set(0, 0, 0);
-            redCube.rotation.y = 0.3;
+            // Green cube - sized to match coin spawn region (-40 to 40 = 80 units wide) and extend under trees
+            const redGeometry = new THREE.BoxGeometry(140, 5, 60);
+            redCube = new THREE.Mesh(redGeometry, new THREE.MeshLambertMaterial({ color: 0x44ff44 }));
+            redCube.position.set(-30, 0, 0);
+            // redCube.rotation.y = 0.3;
             redCube.castShadow = true;
             redCube.receiveShadow = true;
             scene.add(redCube);
@@ -198,11 +319,87 @@
             birdGroup.position.set(0, floorY, 0);
             scene.add(birdGroup);
 
+            // Bird TSL shader for dynamic effects
+            const birdVertexShader = `
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+                varying vec2 vUv;
+                uniform float jumpIntensity;
+                uniform float time;
+                
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    vPosition = position;
+                    vUv = uv;
+                    
+                    // Add wave effect when jumping
+                    vec3 pos = position;
+                    float wave = sin(time * 8.0 + position.x * 2.0) * sin(time * 6.0 + position.y * 2.0) * jumpIntensity * 0.1;
+                    pos += normal * wave;
+                    
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                }
+            `;
+            
+            const birdFragmentShader = `
+                uniform float jumpIntensity;
+                uniform float time;
+                uniform vec3 baseColor;
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+                varying vec2 vUv;
+                
+                void main() {
+                    // Create pulsing effect when jumping
+                    float pulse = sin(time * 10.0) * 0.5 + 0.5;
+                    float jumpPulse = jumpIntensity * pulse;
+                    
+                    // Create rainbow trail effect when jumping
+                    vec3 rainbowColor = vec3(
+                        sin(time * 3.0 + vPosition.x * 0.5) * 0.5 + 0.5,
+                        sin(time * 3.0 + vPosition.y * 0.5 + 2.094) * 0.5 + 0.5,
+                        sin(time * 3.0 + vPosition.z * 0.5 + 4.188) * 0.5 + 0.5
+                    );
+                    
+                    // Create energy field effect
+                    float energyField = sin(time * 15.0 + vPosition.x * 3.0) * sin(time * 12.0 + vPosition.y * 3.0) * jumpIntensity;
+                    
+                    // Combine effects
+                    vec3 finalColor = baseColor;
+                    finalColor = mix(finalColor, rainbowColor, jumpIntensity * 0.7);
+                    finalColor += vec3(energyField * 0.3, energyField * 0.2, energyField * 0.5) * jumpIntensity;
+                    finalColor += baseColor * jumpPulse * 0.5;
+                    
+                    // Add glow effect when jumping
+                    float glow = jumpIntensity * (sin(time * 8.0) * 0.3 + 0.7);
+                    finalColor += baseColor * glow * 0.3;
+                    
+                    gl_FragColor = vec4(finalColor, 1.0);
+                }
+            `;
+            
+            // Create bird shader material
+            try {
+                birdShaderMaterial = new THREE.ShaderMaterial({
+                    vertexShader: birdVertexShader,
+                    fragmentShader: birdFragmentShader,
+                    uniforms: {
+                        jumpIntensity: { value: 0.0 },
+                        time: { value: 0.0 },
+                        baseColor: { value: new THREE.Color(birdColor) }
+                    },
+                    side: THREE.DoubleSide
+                });
+            } catch (error) {
+                console.warn('Bird shader failed, using fallback:', error);
+                birdShaderMaterial = new THREE.MeshLambertMaterial({ color: birdColor });
+            }
+
             // Green sphere (same volume as 5x5x5 cube)
             const cubeVolume = 5 * 5 * 5; // 125 cubic units
             const sphereRadius = Math.pow((3 * cubeVolume) / (4 * Math.PI), 1/3); // ~3.1 units
             const greenGeometry = new THREE.SphereGeometry(sphereRadius*1.1, 32, 32);
-            greenCube = new THREE.Mesh(greenGeometry, new THREE.MeshLambertMaterial({ color: birdColor }));
+            greenCube = new THREE.Mesh(greenGeometry, birdShaderMaterial);
             greenCube.position.set(0, sphereRadius, 0);
             greenCube.castShadow = true;
             greenCube.receiveShadow = true;
@@ -311,59 +508,89 @@
             // head.rotation.z = Math.PI / 2;
             // arrowGroup.add(head);
             
-            // scene.add(arrowGroup);
+            //             scene.add(arrowGroup);
 
+            // Initialize particle system for coin collection effects
+            initParticleSystem();
+
+            // Custom shader for glowing coins
+            const vertexShader = `
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+                varying vec2 vUv;
+                
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    vPosition = position;
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `;
+            
+            const fragmentShader = `
+                uniform float time;
+                uniform vec3 color;
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+                varying vec2 vUv;
+                
+                void main() {
+                    // Create a pulsing glow effect
+                    float pulse = sin(time * 3.0) * 0.5 + 0.5;
+                    
+                    // Create a radial gradient from center
+                    vec2 center = vec2(0.5, 0.5);
+                    float dist = distance(vUv, center);
+                    float radial = 1.0 - smoothstep(0.0, 0.5, dist);
+                    
+                    // Combine pulse and radial for glow effect
+                    float glow = radial * pulse * 0.8 + radial * 0.2;
+                    
+                    // Add some variation based on position
+                    float variation = sin(vPosition.x * 10.0 + time) * sin(vPosition.y * 10.0 + time) * 0.1;
+                    
+                    // Add metallic shine effect
+                    float metallic = pow(max(0.0, dot(vNormal, vec3(0.0, 1.0, 0.0))), 2.0);
+                    
+                    // Final color with glow, variation, and metallic effect
+                    vec3 finalColor = color * (glow + variation + metallic * 0.5);
+                    
+                    // Ensure minimum brightness so coins are never black
+                    finalColor = max(finalColor, color * 0.3);
+                    
+                    gl_FragColor = vec4(finalColor, 1.0);
+                }
+            `;
+            
             // Initialize coins
             for (let i = 0; i < maxCoins; i++) {
-                // Create a torus geometry with 20% thicker tube (0.5 * 1.2 = 0.6)
-                const torusGeometry = new THREE.TorusGeometry(2, 0.6, 16, 32);
+                // Create a half-torus (banana shape) by using a full torus but only showing the bottom half
+                const torusGeometry = new THREE.TorusGeometry(2, 0.6, 16, 32, Math.PI);
                 
-                // Create a plane to cut the torus in half
-                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-                const cutter = new THREE.PlaneHelper(plane, 10, 0xff0000);
-                
-                // Apply the plane cut to create a half-torus
-                const halfTorusGeometry = torusGeometry.clone();
-                halfTorusGeometry.computeBoundingBox();
-                const box = halfTorusGeometry.boundingBox;
-                
-                // Remove vertices above the plane (y > 0)
-                const positions = halfTorusGeometry.attributes.position;
-                const indices = halfTorusGeometry.index;
-                const newPositions = [];
-                const newIndices = [];
-                
-                // Safety check for indices
-                if (indices && indices.count > 0) {
-                    for (let i = 0; i < indices.count; i += 3) {
-                        const a = indices.getX(i);
-                        const b = indices.getX(i + 1);
-                        const c = indices.getX(i + 2);
-                        
-                        const va = new THREE.Vector3().fromBufferAttribute(positions, a);
-                        const vb = new THREE.Vector3().fromBufferAttribute(positions, b);
-                        const vc = new THREE.Vector3().fromBufferAttribute(positions, c);
-                        
-                        // Only keep triangles that are mostly below the plane
-                        if (va.y <= 0.1 && vb.y <= 0.1 && vc.y <= 0.1) {
-                            newPositions.push(va.x, va.y, va.z, vb.x, vb.y, vb.z, vc.x, vc.y, vc.z);
-                            newIndices.push(newIndices.length, newIndices.length + 1, newIndices.length + 2);
-                        }
-                    }
+                // Create custom shader material with proper UV coordinates
+                let coinMaterial;
+                try {
+                    coinMaterial = new THREE.ShaderMaterial({
+                        vertexShader: vertexShader,
+                        fragmentShader: fragmentShader,
+                        uniforms: {
+                            time: { value: 0.0 },
+                            color: { value: new THREE.Color(0xffff00) }
+                        },
+                        side: THREE.DoubleSide,
+                        transparent: true
+                    });
+                } catch (error) {
+                    console.warn('Shader material failed, using fallback:', error);
+                    // Fallback to a bright yellow material if shader fails
+                    coinMaterial = new THREE.MeshLambertMaterial({ 
+                        color: 0xffff00,
+                        emissive: 0x444400,
+                        emissiveIntensity: 0.5
+                    });
                 }
                 
-                // Create new geometry from the filtered vertices
-                const bananaGeometry = new THREE.BufferGeometry();
-                bananaGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
-                bananaGeometry.setIndex(newIndices);
-                bananaGeometry.computeVertexNormals();
-                
-                const coin = new THREE.Mesh(bananaGeometry, new THREE.MeshLambertMaterial({ 
-                    color: 0xffff00,
-                    emissive: 0x666600,
-                    emissiveIntensity: 0.3,
-                    side: THREE.DoubleSide
-                }));
+                const coin = new THREE.Mesh(torusGeometry, coinMaterial);
                 
                 // Safety check to ensure coin was created properly
                 if (coin && coin.position) {
@@ -383,6 +610,59 @@
                     scene.add(coin);
                     coins.push(coin);
                 }
+            }
+
+            // Initialize trees
+            for (let i = 0; i < maxTrees; i++) {
+                const treeGroup = new THREE.Group();
+                
+                // Tree trunk (brown cylinder)
+                const trunkGeometry = new THREE.CylinderGeometry(0.8, 1.2, 8, 8);
+                const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                trunk.position.y = 4;
+                trunk.castShadow = true;
+                trunk.receiveShadow = true;
+                treeGroup.add(trunk);
+                
+                // Tree foliage (green spheres stacked)
+                const foliageColors = [0x228B22, 0x32CD32, 0x90EE90, 0x98FB98];
+                const foliagePositions = [
+                    { y: 8, scale: 1.2 },
+                    { y: 10, scale: 1.0 },
+                    { y: 12, scale: 0.8 },
+                    { y: 14, scale: 0.6 }
+                ];
+                
+                foliagePositions.forEach((pos, index) => {
+                    const foliageGeometry = new THREE.SphereGeometry(pos.scale * 2, 12, 12);
+                    const foliageMaterial = new THREE.MeshLambertMaterial({ 
+                        color: foliageColors[index % foliageColors.length] 
+                    });
+                    const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+                    foliage.position.y = pos.y;
+                    foliage.castShadow = true;
+                    foliage.receiveShadow = true;
+                    treeGroup.add(foliage);
+                });
+                
+                // Position trees on alternating sides
+                const side = i % 2 === 0 ? -1 : 1; // Left or right side
+                const sideOffset = side * 25; // Distance from center
+                const startX = -60 + i * treeSpacing;
+                
+                treeGroup.position.set(startX, 0, sideOffset);
+                
+                // Random rotation around Y axis for variety
+                treeGroup.rotation.y = Math.random() * Math.PI * 2;
+                
+                // Random slight scale variation
+                const scaleVariation = 0.8 + Math.random() * 0.4;
+                treeGroup.scale.set(scaleVariation, scaleVariation, scaleVariation);
+                
+                treeGroup.userData = { originalX: treeGroup.position.x, side: side };
+                scene.add(treeGroup);
+                trees.push(treeGroup);
             }
 
             raycaster = new THREE.Raycaster();
@@ -422,7 +702,7 @@
             const seconds = elapsedTime % 60;
             const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
-            document.getElementById('score').textContent = `🎯 Points: ${score} | ❌ Missed: ${missedCoins} | ⏱️ Time: ${timeString}`;
+            document.getElementById('score').textContent = `🎯 POINTS: ${score} | ❌ MISSED: ${missedCoins} | ⏱️ TIME: ${timeString}`;
         }
 
         function render() {
@@ -430,6 +710,29 @@
             camera.position.x = -(radius * Math.sin(THREE.MathUtils.degToRad(theta)));
             camera.lookAt(scene.position);
             camera.updateMatrixWorld();
+
+            // Update TSL shader time and jump effect
+            const shaderTime = Date.now() * 0.001;
+            if (birdShaderMaterial && birdShaderMaterial.uniforms) {
+                birdShaderMaterial.uniforms.time.value = shaderTime;
+                
+                // Update jump intensity based on time since jump started
+                if (isJumping) {
+                    const jumpElapsed = (Date.now() - jumpStartTime) * 0.001;
+                    const jumpDuration = 1.0; // Effect lasts 1 second
+                    
+                    if (jumpElapsed < jumpDuration) {
+                        // Create a smooth curve that peaks in the middle
+                        const progress = jumpElapsed / jumpDuration;
+                        const intensity = Math.sin(progress * Math.PI) * 1.0;
+                        birdShaderMaterial.uniforms.jumpIntensity.value = intensity;
+                    } else {
+                        // Reset effect
+                        birdShaderMaterial.uniforms.jumpIntensity.value = 0.0;
+                        isJumping = false;
+                    }
+                }
+            }
 
             // Apply gravity and update bird group position
             velocityY += gravity;
@@ -461,7 +764,13 @@
             }
 
             // Update and move coins
+            const currentTime = Date.now() * 0.001; // Convert to seconds for shader
             coins.forEach((coin, index) => {
+                // Update shader time uniform for animation
+                if (coin.material && coin.material.uniforms && coin.material.uniforms.time) {
+                    coin.material.uniforms.time.value = currentTime;
+                }
+                
                 coin.position.x += coinSpeed;
                 if (coin.position.x > 40) { // Reset coin to start when it goes off-screen
                     // Count missed coin
@@ -489,8 +798,12 @@
                 // Check collision with bird
                 if (birdGroup && birdGroup.position && coin && coin.position) {
                     const distance = birdGroup.position.distanceTo(coin.position);
-                                        if (distance < 3 && velocityY > 0) { // Collision when jumping
+                    if (distance < 3 && velocityY > 0) { // Collision when jumping
                         score += 1;
+                        
+                        // Create particle effect at coin position
+                        createCoinParticles(coin.position.clone());
+                        
                         // Find the leftmost coin to position this one to its left
                         let leftmostX = Infinity;
                         coins.forEach(c => {
@@ -509,6 +822,32 @@
                         coin.rotation.y = Math.random() * Math.PI * 2;
                         coin.rotation.z = Math.random() * Math.PI * 2;
                     }
+                }
+            });
+
+            // Update and move trees
+            trees.forEach((tree, index) => {
+                tree.position.x += treeSpeed;
+                if (tree.position.x > 40) { // Reset tree to start when it goes off-screen
+                    // Find the leftmost tree to position this one to its left
+                    let leftmostX = Infinity;
+                    trees.forEach(t => {
+                        if (t.position.x < leftmostX) {
+                            leftmostX = t.position.x;
+                        }
+                    });
+                    tree.position.x = leftmostX - treeSpacing;
+                    
+                    // Keep the same side position
+                    const sideOffset = tree.userData.side * 25;
+                    tree.position.z = sideOffset;
+                    
+                    // Random rotation around Y axis for variety
+                    tree.rotation.y = Math.random() * Math.PI * 2;
+                    
+                    // Random slight scale variation
+                    const scaleVariation = 0.8 + Math.random() * 0.4;
+                    tree.scale.set(scaleVariation, scaleVariation, scaleVariation);
                 }
             });
 
@@ -537,7 +876,228 @@
             }
 
             updateScoreDisplay();
+            
+            // Update particles
+            updateParticles();
+            
             renderer.render(scene, camera);
+        }
+
+        function initParticleSystem() {
+            // Create particle geometry
+            const particleCount = 100;
+            particleGeometry = new THREE.BufferGeometry();
+            
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount * 3);
+            const lifetimes = new Float32Array(particleCount);
+            const colors = new Float32Array(particleCount * 3);
+            
+            // Initialize all particles as inactive
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = 0;
+                positions[i * 3 + 1] = 0;
+                positions[i * 3 + 2] = 0;
+                
+                velocities[i * 3] = 0;
+                velocities[i * 3 + 1] = 0;
+                velocities[i * 3 + 2] = 0;
+                
+                lifetimes[i] = 0;
+                
+                // Random colors for variety
+                colors[i * 3] = Math.random() * 0.5 + 0.5; // R
+                colors[i * 3 + 1] = Math.random() * 0.5 + 0.5; // G
+                colors[i * 3 + 2] = Math.random() * 0.5 + 0.5; // B
+            }
+            
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+            particleGeometry.setAttribute('lifetime', new THREE.BufferAttribute(lifetimes, 1));
+            particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            // TSL Particle shader
+            const particleVertexShader = `
+                attribute vec3 velocity;
+                attribute float lifetime;
+                attribute vec3 color;
+                
+                varying vec3 vColor;
+                varying float vLifetime;
+                varying vec3 vPosition;
+                
+                uniform float time;
+                uniform float deltaTime;
+                
+                void main() {
+                    vColor = color;
+                    vLifetime = lifetime;
+                    vPosition = position;
+                    
+                    // Calculate particle position based on velocity and lifetime
+                    vec3 pos = position;
+                    if (lifetime > 0.0) {
+                        // Apply velocity with some physics
+                        pos += velocity * lifetime;
+                        
+                        // Add gravity effect
+                        pos.y -= 0.5 * lifetime * lifetime;
+                        
+                        // Add some random movement
+                        float noise = sin(time * 10.0 + position.x * 100.0) * 
+                                    sin(time * 8.0 + position.y * 100.0) * 
+                                    sin(time * 12.0 + position.z * 100.0) * 0.1;
+                        pos += vec3(noise, noise * 0.5, noise * 0.3);
+                    }
+                    
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                    
+                    // Point size based on lifetime (fade out)
+                    float size = 8.0 * (1.0 - lifetime / 2.0);
+                    gl_PointSize = max(2.0, size);
+                }
+            `;
+            
+            const particleFragmentShader = `
+                varying vec3 vColor;
+                varying float vLifetime;
+                varying vec3 vPosition;
+                
+                uniform float time;
+                
+                void main() {
+                    // Create a circular particle
+                    vec2 center = vec2(0.5, 0.5);
+                    float dist = distance(gl_PointCoord, center);
+                    
+                    if (dist > 0.5) {
+                        discard;
+                    }
+                    
+                    // Create pulsing glow effect
+                    float pulse = sin(time * 15.0 + vPosition.x * 10.0) * 0.3 + 0.7;
+                    
+                    // Create rainbow trail effect
+                    vec3 rainbowColor = vec3(
+                        sin(time * 5.0 + vPosition.x * 2.0) * 0.5 + 0.5,
+                        sin(time * 5.0 + vPosition.y * 2.0 + 2.094) * 0.5 + 0.5,
+                        sin(time * 5.0 + vPosition.z * 2.0 + 4.188) * 0.5 + 0.5
+                    );
+                    
+                    // Create energy field effect
+                    float energyField = sin(time * 20.0 + vPosition.x * 5.0) * 
+                                      sin(time * 18.0 + vPosition.y * 5.0) * 0.5;
+                    
+                    // Combine effects
+                    vec3 finalColor = vColor;
+                    finalColor = mix(finalColor, rainbowColor, 0.6);
+                    finalColor += vec3(energyField * 0.4, energyField * 0.2, energyField * 0.6);
+                    
+                    // Add glow effect
+                    float glow = (1.0 - vLifetime / 2.0) * pulse;
+                    finalColor += vColor * glow * 0.5;
+                    
+                    // Fade out based on lifetime
+                    float alpha = 1.0 - (vLifetime / 2.0);
+                    
+                    gl_FragColor = vec4(finalColor, alpha);
+                }
+            `;
+            
+            // Create particle material
+            try {
+                particleMaterial = new THREE.ShaderMaterial({
+                    vertexShader: particleVertexShader,
+                    fragmentShader: particleFragmentShader,
+                    uniforms: {
+                        time: { value: 0.0 },
+                        deltaTime: { value: 0.0 }
+                    },
+                    transparent: true,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+            } catch (error) {
+                console.warn('Particle shader failed, using fallback:', error);
+                particleMaterial = new THREE.PointsMaterial({
+                    color: 0xffff00,
+                    size: 8,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending
+                });
+            }
+            
+            // Create particle system
+            particleSystem = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particleSystem);
+        }
+
+        function createCoinParticles(position) {
+            const particleCount = 20;
+            const positions = particleGeometry.attributes.position.array;
+            const velocities = particleGeometry.attributes.velocity.array;
+            const lifetimes = particleGeometry.attributes.lifetime.array;
+            
+            for (let i = 0; i < particleCount; i++) {
+                // Find an inactive particle
+                let particleIndex = -1;
+                for (let j = 0; j < lifetimes.length; j++) {
+                    if (lifetimes[j] <= 0) {
+                        particleIndex = j;
+                        break;
+                    }
+                }
+                
+                if (particleIndex !== -1) {
+                    // Set particle position
+                    positions[particleIndex * 3] = position.x;
+                    positions[particleIndex * 3 + 1] = position.y;
+                    positions[particleIndex * 3 + 2] = position.z;
+                    
+                    // Set random velocity
+                    const speed = 2 + Math.random() * 3;
+                    const angle = Math.random() * Math.PI * 2;
+                    const height = Math.random() * 2 + 1;
+                    
+                    velocities[particleIndex * 3] = Math.cos(angle) * speed;
+                    velocities[particleIndex * 3 + 1] = height;
+                    velocities[particleIndex * 3 + 2] = Math.sin(angle) * speed;
+                    
+                    // Set lifetime
+                    lifetimes[particleIndex] = 0;
+                    
+                    activeParticles.push(particleIndex);
+                }
+            }
+            
+            // Update geometry
+            particleGeometry.attributes.position.needsUpdate = true;
+            particleGeometry.attributes.velocity.needsUpdate = true;
+            particleGeometry.attributes.lifetime.needsUpdate = true;
+        }
+
+        function updateParticles() {
+            if (!particleMaterial || !particleMaterial.uniforms) return;
+            
+            const currentTime = Date.now() * 0.001;
+            particleMaterial.uniforms.time.value = currentTime;
+            particleMaterial.uniforms.deltaTime.value = 0.016; // Assuming 60fps
+            
+            const lifetimes = particleGeometry.attributes.lifetime.array;
+            
+            // Update active particles
+            for (let i = activeParticles.length - 1; i >= 0; i--) {
+                const particleIndex = activeParticles[i];
+                lifetimes[particleIndex] += 0.016; // Increment lifetime
+                
+                // Remove particles that have lived too long
+                if (lifetimes[particleIndex] >= 2.0) {
+                    lifetimes[particleIndex] = 0;
+                    activeParticles.splice(i, 1);
+                }
+            }
+            
+            particleGeometry.attributes.lifetime.needsUpdate = true;
         }
     </script>
 </body>
