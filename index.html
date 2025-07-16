@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>3D Game on 𝕏 by Webduno + Grok</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <!-- Existing meta tags unchanged -->
+	 
+		<!-- Open Graph / X (Twitter) Meta Tags -->
+		<meta property="og:type" content="website">
+		<meta property="og:title" content="3D Game on 𝕏 by Webduno + Grok">
+		<meta property="og:description" content="Interactive 3D Game demo Embedded on X (formerly Twitter) - click to interact! Made with Three.js">
+		<meta property="description" content="Interactive 3D Game demo Embedded on X (formerly Twitter) - click to interact! Made with Three.js">
+		<meta property="og:url" content="https://webduno.com/redbutton">
+		<meta property="og:image" content="https://webduno.com/redbutton/preview.png">
+		<meta property="og:image:width" content="1200">
+		<meta property="og:image:height" content="630">
+		<meta property="og:image:alt" content="3D Interactive Embedded Game Demo">
+		<meta property="og:image:secure_url" content="https://webduno.com/redbutton/preview.png">
+		<meta property="og:image:type" content="image/png">
+		<meta property="og:site_name" content="Webduno">
+		<meta property="og:locale" content="en_US">
+		<meta property="og:video" content="https://webduno.com/redbutton/demo.webm">
+		<meta property="og:video:type" content="video/webm">
+		<meta property="og:video:width" content="640">
+		<meta property="og:video:height" content="360">
+		<meta property="og:video:duration" content="10">
+		<meta property="og:video:tag" content="3D">
+		<meta property="og:video:tag" content="Interactive">
+		<meta property="og:video:tag" content="Three.js">
+		
+		<!-- Twitter Card Meta Tags -->
+		<!-- Note: Player cards require Twitter whitelisting. If not approved, change to "summary_large_image" -->
+		<!-- <meta name="twitter:card" content="summary_large_image"> -->
+		<meta name="twitter:card" content="player">
+		<meta name="twitter:site" content="@webduno">
+		<meta name="twitter:title" content="3D Game on 𝕏">
+		<meta name="twitter:description" content="Interactive 3D button demo with Three.js - click to interact!">
+		<meta name="twitter:url" content="https://webduno.com/redbutton">
+		<meta name="twitter:image" content="https://webduno.com/redbutton/preview.png">
+		<meta name="twitter:image:width" content="1200">
+		<meta name="twitter:image:height" content="630">
+		<meta name="twitter:image:alt" content="3D Interactive Button Demo">
+		<meta name="twitter:player" content="https://webduno.com/redbutton">
+		<meta name="twitter:player:width" content="480">
+		<meta name="twitter:player:height" content="480">
+		<meta name="twitter:app:name:iphone" content="Webduno">
+		<meta name="twitter:app:name:ipad" content="Webduno">
+		<meta name="twitter:app:name:googleplay" content="Webduno">
+		
+		<meta name="twitter:creator" content="@webduno">
+		
+
+    <link type="text/css" rel="stylesheet" href="https://webduno.com/redbutton/main.css">
+    <style>
+        body {
+            background-color: #ffbb66;
+            background: linear-gradient(45deg, #ffbb66, #66aaff);
+            color: #444;
+        }
+        a {
+            color: #08f;
+        }
+        #score {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color:#0088ff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-family: 'Comic Sans MS', cursive;
+            font-size: .6rem;
+            /* font-weight: bold; */
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Points: 0</div>
+    <script async src="https://webduno.com/redbutton/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://webduno.com/redbutton/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        let container;
+        let camera, scene, raycaster, renderer;
+        let INTERSECTED;
+        let theta = 0;
+        let greenCube;
+        let birdGroup;
+        let redCube;
+        let velocityY = 0;
+        const gravity = -0.5;
+        const jumpForce = 10;
+        const floorY = 5;
+        let score = 0;
+        let missedCoins = 0;
+        let startTime = Date.now();
+
+        const pointer = new THREE.Vector2();
+        const radius = 100;
+        
+        // Bird color variable for easy customization
+        const birdColor = 0x66aaff; // Lighter blue version of the button color
+
+        // Coin array and parameters
+        const coins = [];
+        const maxCoins = 7;
+        const coinSpeed = 0.1;
+        const coinHeight = 20; // Starting height above red cube
+        const coinRadius = 1;
+
+        init();
+        animate();
+
+        function init() {
+            document.addEventListener("click", (e) => {
+                if (INTERSECTED) {
+                    INTERSECTED.position.y = -2;
+                    velocityY = jumpForce;
+                } else {
+                    // Jump the bird when clicking anywhere
+                    velocityY = jumpForce;
+                }
+                
+                // Rotate wings by a small random amount
+                const leftWing = greenCube.children.find(child => child.scale.x === 10 && child.position.x < 0);
+                const rightWing = greenCube.children.find(child => child.scale.x === 10 && child.position.x > 0);
+                
+                if (leftWing && rightWing) {
+                    const rotationAmount = (Math.random() - 0.5) * 0.7; // Small random rotation between -0.15 and 0.15 radians
+                    leftWing.rotation.z = rotationAmount;
+                    rightWing.rotation.z = rotationAmount;
+                }
+            });
+
+            container = document.createElement('div');
+            document.body.appendChild(container);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.y = 20;
+            camera.position.z = 50;
+
+            scene = new THREE.Scene();
+            
+            // Create gradient background
+            const canvas = document.createElement('canvas');
+            canvas.width = 2;
+            canvas.height = 2;
+            const context = canvas.getContext('2d');
+            const gradient = context.createLinearGradient(0, 0, 2, 2);
+            gradient.addColorStop(0, '#ffbb66');
+            gradient.addColorStop(1, '#66aaff');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 2, 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            scene.background = texture;
+
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 6);
+            scene.add(ambientLight);
+
+            // Directional light with shadows
+            const light = new THREE.DirectionalLight(0xffffff, 1.2);
+            light.position.set(-2, 3, 2).normalize();
+            light.castShadow = true;
+            light.shadow.mapSize.width = 2048;
+            light.shadow.mapSize.height = 2048;
+            light.shadow.camera.near = 0.5;
+            light.shadow.camera.far = 500;
+            light.shadow.camera.left = -50;
+            light.shadow.camera.right = 50;
+            light.shadow.camera.top = 50;
+            light.shadow.camera.bottom = -50;
+            scene.add(light);
+
+            // Red cube
+            const redGeometry = new THREE.BoxGeometry(30, 10, 20);
+            redCube = new THREE.Mesh(redGeometry, new THREE.MeshLambertMaterial({ color: 0xff4444 }));
+            redCube.position.set(0, 0, 0);
+            redCube.rotation.y = 0.3;
+            redCube.castShadow = true;
+            redCube.receiveShadow = true;
+            scene.add(redCube);
+
+            // Create bird group
+            birdGroup = new THREE.Group();
+            birdGroup.position.set(0, floorY, 0);
+            scene.add(birdGroup);
+
+            // Green sphere (same volume as 5x5x5 cube)
+            const cubeVolume = 5 * 5 * 5; // 125 cubic units
+            const sphereRadius = Math.pow((3 * cubeVolume) / (4 * Math.PI), 1/3); // ~3.1 units
+            const greenGeometry = new THREE.SphereGeometry(sphereRadius*1.1, 32, 32);
+            greenCube = new THREE.Mesh(greenGeometry, new THREE.MeshLambertMaterial({ color: birdColor }));
+            greenCube.position.set(0, sphereRadius, 0);
+            greenCube.castShadow = true;
+            greenCube.receiveShadow = true;
+            birdGroup.add(greenCube);
+
+			
+
+            // Add colorful spheres to make it look like a fat small macaw
+            const macawSpheres = [];
+            
+            // Beak (black sphere)
+            const beakGeometry = new THREE.SphereGeometry(sphereRadius * 0.15, 16, 16);
+            const beak = new THREE.Mesh(beakGeometry, new THREE.MeshLambertMaterial({ color: 0x000000 }));
+            beak.position.set(0, 0, sphereRadius + sphereRadius * 0.15);
+			beak.scale.set(1, 1, 10);
+            beak.castShadow = true;
+            greenCube.add(beak);
+            macawSpheres.push(beak);
+            
+            // Eyes (blue spheres)
+            const eyeGeometry = new THREE.SphereGeometry(sphereRadius * 0.08, 12, 12);
+            const leftEye = new THREE.Mesh(eyeGeometry, new THREE.MeshLambertMaterial({ color: 0x000000 }));
+            leftEye.position.set(-sphereRadius * 0.3, sphereRadius * 0.2, sphereRadius + sphereRadius * 0.1);
+            leftEye.castShadow = true;
+            greenCube.add(leftEye);
+            macawSpheres.push(leftEye);
+            
+            const rightEye = new THREE.Mesh(eyeGeometry, new THREE.MeshLambertMaterial({ color: 0x000000 }));
+            rightEye.position.set(sphereRadius * 0.3, sphereRadius * 0.2, sphereRadius + sphereRadius * 0.1);
+            rightEye.castShadow = true;
+            greenCube.add(rightEye);
+            macawSpheres.push(rightEye);
+            
+            // Left wing (red and blue spheres)
+            const wingGeometry = new THREE.SphereGeometry(sphereRadius * 0.2, 16, 16);
+            const leftWingRed = new THREE.Mesh(wingGeometry, new THREE.MeshLambertMaterial({ color: birdColor }));
+            leftWingRed.position.set(-sphereRadius - sphereRadius * 0.2, 0, 0);
+            leftWingRed.castShadow = true;
+            greenCube.add(leftWingRed);
+            macawSpheres.push(leftWingRed);
+            
+            const leftWingBlue = new THREE.Mesh(wingGeometry, new THREE.MeshLambertMaterial({ color: birdColor }));
+            leftWingBlue.position.set(-sphereRadius - sphereRadius * 0.4, 0, 0);
+			leftWingBlue.scale.set(10, 1, 3);
+            leftWingBlue.castShadow = true;
+            greenCube.add(leftWingBlue);
+            macawSpheres.push(leftWingBlue);
+            
+            // Right wing (red and yellow spheres)
+            const rightWingRed = new THREE.Mesh(wingGeometry, new THREE.MeshLambertMaterial({ color: birdColor }));
+            rightWingRed.position.set(sphereRadius + sphereRadius * 0.2, 0, 0);
+            rightWingRed.castShadow = true;
+            greenCube.add(rightWingRed);
+            macawSpheres.push(rightWingRed);
+            
+            const rightWingYellow = new THREE.Mesh(wingGeometry, new THREE.MeshLambertMaterial({ color: birdColor }));
+            rightWingYellow.position.set(sphereRadius + sphereRadius * 0.4, 0, 0);
+			rightWingYellow.scale.set(10, 1, 3);
+            rightWingYellow.castShadow = true;
+            greenCube.add(rightWingYellow);
+            macawSpheres.push(rightWingYellow);
+            
+            // Store wing references for rotation
+            const leftWing = leftWingBlue;
+            const rightWing = rightWingYellow;
+            
+            // Tail feathers (orange spheres)
+            const tailGeometry = new THREE.SphereGeometry(sphereRadius * 0.3, 12, 12);
+            const tail1 = new THREE.Mesh(tailGeometry, new THREE.MeshLambertMaterial({ color: birdColor }));
+            tail1.position.set(0, -sphereRadius - sphereRadius * 0.15, -sphereRadius * 0.3);
+            tail1.castShadow = true;
+            greenCube.add(tail1);
+            macawSpheres.push(tail1);
+            
+            // const tail2 = new THREE.Mesh(tailGeometry, new THREE.MeshLambertMaterial({ color: 0x99ccff }));
+            // tail2.position.set(0, -sphereRadius - sphereRadius * 0.53, -sphereRadius * 0.6);
+            // greenCube.add(tail2);
+            // macawSpheres.push(tail2);
+            
+            // Top crest (purple spheres)
+            const crestGeometry = new THREE.SphereGeometry(sphereRadius * 0.1, 12, 12);
+            const crest1 = new THREE.Mesh(crestGeometry, new THREE.MeshLambertMaterial({ color: 0x9900ff }));
+            crest1.position.set(0, sphereRadius + sphereRadius * 0.15, 0);
+            // greenCube.add(crest1);
+            // macawSpheres.push(crest1);
+            
+            const crest2 = new THREE.Mesh(crestGeometry, new THREE.MeshLambertMaterial({ color: 0x9900ff }));
+            crest2.position.set(0, sphereRadius + sphereRadius * 0.3, 0);
+            // greenCube.add(crest2);
+            // macawSpheres.push(crest2);
+
+            // // Add arrow pointing left
+            // const arrowGroup = new THREE.Group();
+            // arrowGroup.position.set(-30, 15, 0);
+            
+            // // Arrow shaft
+            // const shaftGeometry = new THREE.CylinderGeometry(0.3, 0.3, 8, 8);
+            // const shaft = new THREE.Mesh(shaftGeometry, new THREE.MeshLambertMaterial({ color: 0x000000 }));
+            // shaft.rotation.z = Math.PI / 2;
+            // arrowGroup.add(shaft);
+            
+            // // Arrow head
+            // const headGeometry = new THREE.ConeGeometry(1, 2, 8);
+            // const head = new THREE.Mesh(headGeometry, new THREE.MeshLambertMaterial({ color: 0x000000 }));
+            // head.position.set(-5, 0, 0);
+            // head.rotation.z = Math.PI / 2;
+            // arrowGroup.add(head);
+            
+            // scene.add(arrowGroup);
+
+            // Initialize coins
+            for (let i = 0; i < maxCoins; i++) {
+                // Create a torus geometry with 20% thicker tube (0.5 * 1.2 = 0.6)
+                const torusGeometry = new THREE.TorusGeometry(2, 0.6, 16, 32);
+                
+                // Create a plane to cut the torus in half
+                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+                const cutter = new THREE.PlaneHelper(plane, 10, 0xff0000);
+                
+                // Apply the plane cut to create a half-torus
+                const halfTorusGeometry = torusGeometry.clone();
+                halfTorusGeometry.computeBoundingBox();
+                const box = halfTorusGeometry.boundingBox;
+                
+                // Remove vertices above the plane (y > 0)
+                const positions = halfTorusGeometry.attributes.position;
+                const indices = halfTorusGeometry.index;
+                const newPositions = [];
+                const newIndices = [];
+                
+                // Safety check for indices
+                if (indices && indices.count > 0) {
+                    for (let i = 0; i < indices.count; i += 3) {
+                        const a = indices.getX(i);
+                        const b = indices.getX(i + 1);
+                        const c = indices.getX(i + 2);
+                        
+                        const va = new THREE.Vector3().fromBufferAttribute(positions, a);
+                        const vb = new THREE.Vector3().fromBufferAttribute(positions, b);
+                        const vc = new THREE.Vector3().fromBufferAttribute(positions, c);
+                        
+                        // Only keep triangles that are mostly below the plane
+                        if (va.y <= 0.1 && vb.y <= 0.1 && vc.y <= 0.1) {
+                            newPositions.push(va.x, va.y, va.z, vb.x, vb.y, vb.z, vc.x, vc.y, vc.z);
+                            newIndices.push(newIndices.length, newIndices.length + 1, newIndices.length + 2);
+                        }
+                    }
+                }
+                
+                // Create new geometry from the filtered vertices
+                const bananaGeometry = new THREE.BufferGeometry();
+                bananaGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
+                bananaGeometry.setIndex(newIndices);
+                bananaGeometry.computeVertexNormals();
+                
+                const coin = new THREE.Mesh(bananaGeometry, new THREE.MeshLambertMaterial({ 
+                    color: 0xffff00,
+                    emissive: 0x666600,
+                    emissiveIntensity: 0.3,
+                    side: THREE.DoubleSide
+                }));
+                
+                // Safety check to ensure coin was created properly
+                if (coin && coin.position) {
+                    coin.castShadow = true;
+                    coin.receiveShadow = true;
+                    
+                    // Random height between 15 and 25
+                    const randomHeight = coinHeight + (Math.random() - 0.5) * 10;
+                    coin.position.set(-40 + i * 10, randomHeight, 0); // Spread coins horizontally
+                    
+                    // Random rotations around all axes
+                    coin.rotation.x = Math.random() * Math.PI * 2;
+                    coin.rotation.y = Math.random() * Math.PI * 2;
+                    coin.rotation.z = Math.random() * Math.PI * 2;
+                    
+                    coin.userData = { originalX: coin.position.x };
+                    scene.add(coin);
+                    coins.push(coin);
+                }
+            }
+
+            raycaster = new THREE.Raycaster();
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            document.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+			camera.fov = 90;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onPointerMove(event) {
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function updateScoreDisplay() {
+            const currentTime = Date.now();
+            const elapsedTime = Math.floor((currentTime - startTime) / 1000); // Time in seconds
+            const minutes = Math.floor(elapsedTime / 60);
+            const seconds = elapsedTime % 60;
+            const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            document.getElementById('score').textContent = `🎯 Points: ${score} | ❌ Missed: ${missedCoins} | ⏱️ Time: ${timeString}`;
+        }
+
+        function render() {
+            theta += 0.05;
+            camera.position.x = -(radius * Math.sin(THREE.MathUtils.degToRad(theta)));
+            camera.lookAt(scene.position);
+            camera.updateMatrixWorld();
+
+            // Apply gravity and update bird group position
+            velocityY += gravity;
+            if (birdGroup && birdGroup.position) {
+                birdGroup.position.y += velocityY * 0.1;
+
+                const sphereRadius = Math.pow((3 * 125) / (4 * Math.PI), 1/3); // Same calculation as above
+                if (birdGroup.position.y < floorY + sphereRadius) {
+                    birdGroup.position.y = floorY + sphereRadius;
+                    velocityY = 0;
+                }
+            }
+
+            // Make bird look at arrow
+            if (birdGroup && birdGroup.position) {
+                const arrowPosition = new THREE.Vector3(-30, 15, 0);
+                const birdPosition = birdGroup.position.clone();
+                const direction = arrowPosition.clone().sub(birdPosition);
+                const angle = Math.atan2(direction.x, direction.z);
+                birdGroup.rotation.y = angle;
+            }
+
+            // Handle red cube interaction
+            if (INTERSECTED && INTERSECTED.position && INTERSECTED.position.y < 0) {
+                INTERSECTED.position.y += 0.2;
+                if (Math.abs(INTERSECTED.position.y) < 0.01) {
+                    INTERSECTED.position.y = 0;
+                }
+            }
+
+            // Update and move coins
+            coins.forEach((coin, index) => {
+                coin.position.x += coinSpeed;
+                if (coin.position.x > 40) { // Reset coin to start when it goes off-screen
+                    // Count missed coin
+                    missedCoins += 1;
+                    
+                    // Find the leftmost coin to position this one to its left
+                    let leftmostX = Infinity;
+                    coins.forEach(c => {
+                        if (c.position.x < leftmostX) {
+                            leftmostX = c.position.x;
+                        }
+                    });
+                    coin.position.x = leftmostX - 10;
+                    
+                    // Random height between 15 and 25
+                    const randomHeight = coinHeight + (Math.random() - 0.5) * 10;
+                    coin.position.y = randomHeight;
+                    
+                    // Random rotations around all axes
+                    coin.rotation.x = Math.random() * Math.PI * 2;
+                    coin.rotation.y = Math.random() * Math.PI * 2;
+                    coin.rotation.z = Math.random() * Math.PI * 2;
+                }
+
+                // Check collision with bird
+                if (birdGroup && birdGroup.position && coin && coin.position) {
+                    const distance = birdGroup.position.distanceTo(coin.position);
+                                        if (distance < 3 && velocityY > 0) { // Collision when jumping
+                        score += 1;
+                        // Find the leftmost coin to position this one to its left
+                        let leftmostX = Infinity;
+                        coins.forEach(c => {
+                            if (c.position.x < leftmostX) {
+                                leftmostX = c.position.x;
+                            }
+                        });
+                        coin.position.x = leftmostX - 10;
+                        
+                        // Random height between 15 and 25
+                        const randomHeight = coinHeight + (Math.random() - 0.5) * 10;
+                        coin.position.y = randomHeight;
+                        
+                        // Random rotations around all axes
+                        coin.rotation.x = Math.random() * Math.PI * 2;
+                        coin.rotation.y = Math.random() * Math.PI * 2;
+                        coin.rotation.z = Math.random() * Math.PI * 2;
+                    }
+                }
+            });
+
+            raycaster.setFromCamera(pointer, camera);
+            const objectsToIntersect = [];
+            if (birdGroup) objectsToIntersect.push(birdGroup);
+            if (redCube) objectsToIntersect.push(redCube);
+            const intersects = raycaster.intersectObjects(objectsToIntersect, false);
+
+            if (intersects.length > 0) {
+                if (INTERSECTED != intersects[0].object) {
+                    if (INTERSECTED && INTERSECTED.material && INTERSECTED.currentHex) {
+                        INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+                    }
+                    INTERSECTED = intersects[0].object;
+                    if (INTERSECTED && INTERSECTED.material) {
+                        INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+                        INTERSECTED.material.emissive.setHex(0x550000);
+                    }
+                }
+            } else {
+                if (INTERSECTED && INTERSECTED.material && INTERSECTED.currentHex) {
+                    INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+                }
+                INTERSECTED = null;
+            }
+
+            updateScoreDisplay();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
