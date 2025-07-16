@@ -293,7 +293,7 @@
 
             // Directional light with shadows
             const light = new THREE.DirectionalLight(0xffffff, 1.2);
-            light.position.set(-2, 3, 2).normalize();
+            light.position.set(50, 30, 20);
             light.castShadow = true;
             light.shadow.mapSize.width = 2048;
             light.shadow.mapSize.height = 2048;
@@ -305,8 +305,12 @@
             light.shadow.camera.bottom = -50;
             scene.add(light);
 
+            // Light helper to visualize light position
+            // const lightHelper = new THREE.DirectionalLightHelper(light, 5);
+            // scene.add(lightHelper);
+
             // Green cube - sized to match coin spawn region (-40 to 40 = 80 units wide) and extend under trees
-            const redGeometry = new THREE.BoxGeometry(140, 5, 60);
+            const redGeometry = new THREE.BoxGeometry(160, 5, 60);
             redCube = new THREE.Mesh(redGeometry, new THREE.MeshLambertMaterial({ color: 0x44ff44 }));
             redCube.position.set(-30, 0, 0);
             // redCube.rotation.y = 0.3;
@@ -611,6 +615,15 @@
                     coins.push(coin);
                 }
             }
+
+            // Add big yellow sphere to the right of the scene
+            const bigSphereGeometry = new THREE.SphereGeometry(18, 32, 32);
+            const bigSphereMaterial = new THREE.MeshLambertMaterial({ color: 0xffff00 });
+            const bigSphere = new THREE.Mesh(bigSphereGeometry, bigSphereMaterial);
+            bigSphere.position.set(80, 60, 50); // Position to the right of the scene
+            bigSphere.castShadow = true;
+            bigSphere.receiveShadow = true;
+            scene.add(bigSphere);
 
             // Initialize trees
             for (let i = 0; i < maxTrees; i++) {
