@@ -1,4 +1,4 @@
-# X-Game-Template
+# X-Game-Template (Grok 3D Games Embedded in Posts)
 
 A 3D web game template built with Three.js, designed to be embedded on X (formerly Twitter) as an interactive player card. This project demonstrates how to create engaging 3D experiences that work seamlessly within social media platforms.
 
