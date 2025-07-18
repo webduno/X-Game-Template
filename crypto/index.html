@@ -797,8 +797,8 @@
                 const intersectedObject = intersects[0].object;
                 
                 if (intersectedObject.userData && intersectedObject.userData.isClickableCylinder) {
-                    // Redirect to coinrace website
-                    window.open('https://coinrace.vercel.app/', '_blank');
+                    // Redirect to coinrace website in same page
+                    window.location.href = 'https://coinrace.vercel.app/';
                 } else {
                     // Handle switch toggle
                     onSwitchToggle();
