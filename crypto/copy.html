@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>3D Sphere Billboard Prototype</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <!-- Existing meta tags unchanged -->
+    <link rel="icon" href="favicon-32x32.png" type="image/x-icon">
+		<!-- Open Graph / X (Twitter) Meta Tags -->
+		<meta property="og:type" content="website">
+		<meta property="og:title" content="3D Sphere Billboard Prototype">
+		<meta property="og:description" content="Interactive 3D Sphere Billboard Demo with Three.js">
+		<meta property="description" content="Interactive 3D Sphere Billboard Demo with Three.js">
+		<meta property="og:url" content="https://grokgames.vercel.app">
+		<meta property="og:image" content="https://grokgames.vercel.app/crypto/prev.jpg">
+		<meta property="og:image:width" content="1200">
+		<meta property="og:image:height" content="630">
+		<meta property="og:image:alt" content="3D Sphere Billboard Prototype">
+		<meta property="og:image:secure_url" content="https://grokgames.vercel.app/crypto/prev.jpg">
+		<meta property="og:image:type" content="image/png">
+		<meta property="og:site_name" content="Webduno">
+		<meta property="og:locale" content="en_US">
+		
+		<!-- Twitter Card Meta Tags -->
+		<meta name="twitter:card" content="player">
+		<meta name="twitter:site" content="@webduno">
+		<meta name="twitter:title" content="3D Sphere Billboard Prototype">
+		<meta name="twitter:description" content="Interactive 3D Sphere Billboard Demo with Three.js">
+		<meta name="twitter:url" content="https://grokgames.vercel.app">
+		<meta name="twitter:image" content="https://grokgames.vercel.app/crypto/prev.jpg">
+		<meta name="twitter:image:width" content="1200">
+		<meta name="twitter:image:height" content="630">
+		<meta name="twitter:image:alt" content="3D Sphere Billboard Prototype">
+		<meta name="twitter:player" content="https://grokgames.vercel.app">
+		<meta name="twitter:player:width" content="480">
+		<meta name="twitter:player:height" content="480">
+		<meta name="twitter:app:name:iphone" content="Webduno">
+		<meta name="twitter:app:name:ipad" content="Webduno">
+		<meta name="twitter:app:name:googleplay" content="Webduno">
+		
+		<meta name="twitter:creator" content="@webduno">
+		
+
+    <link type="text/css" rel="stylesheet" href="https://grokgames.vercel.app/main.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+        
+        body {
+            background-color: #ffbb66;
+            background: linear-gradient(45deg, #ffbb66, #66aaff);
+            color: #444;
+            font-family: Arial, sans-serif;
+        }
+        
+        a {
+            color: #08f;
+        }
+        
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js" type="module"></script>
+
+    <script type="module">
+        // Wait a moment for import map to be processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js';
+
+        let container;
+        let camera, scene, renderer;
+        let theta = 0;
+        let sphereBillboard;
+
+        const pointer = { x: 0, y: 0 };
+        const radius = 100;
+
+        init();
+        animate();
+
+        function init() {
+            container = document.createElement('div');
+            document.body.appendChild(container);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.y = 20;
+            camera.position.z = 50;
+
+            scene = new THREE.Scene();
+            
+            // Create gradient background
+            const canvas = document.createElement('canvas');
+            canvas.width = 2;
+            canvas.height = 2;
+            const context = canvas.getContext('2d');
+            const gradient = context.createLinearGradient(0, 0, 2, 2);
+            gradient.addColorStop(0, '#ffbb66');
+            gradient.addColorStop(1, '#66aaff');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 2, 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            scene.background = texture;
+
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 6);
+            scene.add(ambientLight);
+
+            // Directional light with shadows
+            const light = new THREE.DirectionalLight(0xffffff, 1.2);
+            light.position.set(50, 30, 20);
+            light.castShadow = true;
+            light.shadow.mapSize.width = 2048;
+            light.shadow.mapSize.height = 2048;
+            light.shadow.camera.near = 0.5;
+            light.shadow.camera.far = 500;
+            light.shadow.camera.left = -50;
+            light.shadow.camera.right = 50;
+            light.shadow.camera.top = 50;
+            light.shadow.camera.bottom = -50;
+            scene.add(light);
+
+            // Create sphere billboard
+            createSphereBillboard();
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            document.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createSphereBillboard() {
+            // Create main sphere
+            const sphereGeometry = new THREE.SphereGeometry(15, 32, 32);
+            const sphereMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x66aaff,
+                transparent: true,
+                opacity: 0.3
+            });
+            sphereBillboard = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            sphereBillboard.position.set(0, 0, 0);
+            sphereBillboard.castShadow = true;
+            sphereBillboard.receiveShadow = true;
+            scene.add(sphereBillboard);
+
+            // Create text billboards around the sphere
+            const billboardData = [
+                { text: "Fear & Greed: 73", position: [0, 25, 0], color: 0x8B4513 },
+                { text: "ETHD (%)", subtext: "11.1", position: [-20, 0, 0], color: 0x666666 },
+                { text: "Total MCAP (B)", subtext: "3870", position: [0, 0, 20], color: 0x666666 },
+                { text: "BTCD (%)", subtext: "60.7", position: [20, 0, 0], color: 0x666666 }
+            ];
+
+            billboardData.forEach(data => {
+                createTextBillboard(data.text, data.subtext, data.position, data.color);
+            });
+        }
+
+        function createTextBillboard(text, subtext, position, color) {
+            // Create canvas for text
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 128;
+            
+            // Set background
+            context.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Set text properties
+            context.fillStyle = 'white';
+            context.font = 'bold 24px Arial';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            
+            // Draw main text
+            context.fillText(text, canvas.width / 2, canvas.height / 2 - 10);
+            
+            // Draw subtext if provided
+            if (subtext) {
+                context.font = 'bold 32px Arial';
+                context.fillText(subtext, canvas.width / 2, canvas.height / 2 + 20);
+            }
+            
+            // Create texture from canvas
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            
+            // Create plane geometry for billboard
+            const planeGeometry = new THREE.PlaneGeometry(8, 4);
+            const planeMaterial = new THREE.MeshBasicMaterial({ 
+                map: texture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+            
+            const billboard = new THREE.Mesh(planeGeometry, planeMaterial);
+            billboard.position.set(position[0], position[1], position[2]);
+            billboard.castShadow = true;
+            billboard.receiveShadow = true;
+            
+            // Make billboard always face camera
+            billboard.userData = { isBillboard: true };
+            
+            scene.add(billboard);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.fov = 90;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onPointerMove(event) {
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function render() {
+            theta += 0.05;
+            camera.position.x = -(radius * Math.sin(THREE.MathUtils.degToRad(theta)));
+            camera.lookAt(scene.position);
+            camera.updateMatrixWorld();
+
+            // Make billboards always face camera
+            scene.children.forEach(child => {
+                if (child.userData && child.userData.isBillboard) {
+                    child.lookAt(camera.position);
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

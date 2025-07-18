@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>3D Sphere Billboard Prototype</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <!-- Existing meta tags unchanged -->
+    <link rel="icon" href="favicon-32x32.png" type="image/x-icon">
+		<!-- Open Graph / X (Twitter) Meta Tags -->
+		<meta property="og:type" content="website">
+		<meta property="og:title" content="3D Sphere Billboard Prototype">
+		<meta property="og:description" content="Interactive 3D Sphere Billboard Demo with Three.js">
+		<meta property="description" content="Interactive 3D Sphere Billboard Demo with Three.js">
+		<meta property="og:url" content="https://grokgames.vercel.app/crypto">
+		<meta property="og:image" content="https://grokgames.vercel.app/crypto/prev.jpg">
+		<meta property="og:image:width" content="1200">
+		<meta property="og:image:height" content="630">
+		<meta property="og:image:alt" content="3D Sphere Billboard Prototype">
+		<meta property="og:image:secure_url" content="https://grokgames.vercel.app/crypto/prev.jpg">
+		<meta property="og:image:type" content="image/png">
+		<meta property="og:site_name" content="Webduno">
+		<meta property="og:locale" content="en_US">
+		
+		<!-- Twitter Card Meta Tags -->
+		<meta name="twitter:card" content="player">
+		<meta name="twitter:site" content="@webduno">
+		<meta name="twitter:title" content="3D Sphere Billboard Prototype">
+		<meta name="twitter:description" content="Interactive 3D Sphere Billboard Demo with Three.js">
+		<meta name="twitter:url" content="https://grokgames.vercel.app/crypto">
+		<meta name="twitter:image" content="https://grokgames.vercel.app/crypto/prev.jpg">
+		<meta name="twitter:image:width" content="1200">
+		<meta name="twitter:image:height" content="630">
+		<meta name="twitter:image:alt" content="3D Sphere Billboard Prototype">
+		<meta name="twitter:player" content="https://grokgames.vercel.app/crypto">
+		<meta name="twitter:player:width" content="480">
+		<meta name="twitter:player:height" content="480">
+		<meta name="twitter:app:name:iphone" content="Webduno">
+		<meta name="twitter:app:name:ipad" content="Webduno">
+		<meta name="twitter:app:name:googleplay" content="Webduno">
+		
+		<meta name="twitter:creator" content="@webduno">
+		
+
+    <link type="text/css" rel="stylesheet" href="https://grokgames.vercel.app/main.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+        
+        body {
+            background-color: #ffbb66;
+            background: linear-gradient(45deg, #ffbb66, #66aaff);
+            color: #444;
+            font-family: Arial, sans-serif;
+        }
+        
+        a {
+            color: #08f;
+        }
+        
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js" type="module"></script>
+
+    <script type="module">
+        // Import API functions
+        import { getFearNGreed } from './fng.js';
+
+        // Wait a moment for import map to be processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js';
+
+        let container;
+        let camera, scene, renderer;
+        let sphereBillboard;
+        let billboards = [];
+
+        // Orbit controls variables
+        let isMouseDown = false;
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let rotationX = 0;
+        let rotationY = 0;
+        let distance = 50;
+        let targetDistance = 50;
+
+        const pointer = { x: 0, y: 0 };
+
+        init();
+        animate();
+
+        function init() {
+            container = document.createElement('div');
+            document.body.appendChild(container);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.set(0, 20, 50);
+
+            scene = new THREE.Scene();
+            
+            // Create gradient background
+            const canvas = document.createElement('canvas');
+            canvas.width = 2;
+            canvas.height = 2;
+            const context = canvas.getContext('2d');
+            const gradient = context.createLinearGradient(0, 0, 2, 2);
+            gradient.addColorStop(0, '#ffbb66');
+            gradient.addColorStop(1, '#66aaff');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 2, 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            scene.background = texture;
+
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 6);
+            scene.add(ambientLight);
+
+            // Directional light with shadows
+            const light = new THREE.DirectionalLight(0xffffff, 1.2);
+            light.position.set(50, 30, 20);
+            light.castShadow = true;
+            light.shadow.mapSize.width = 2048;
+            light.shadow.mapSize.height = 2048;
+            light.shadow.camera.near = 0.5;
+            light.shadow.camera.far = 500;
+            light.shadow.camera.left = -50;
+            light.shadow.camera.right = 50;
+            light.shadow.camera.top = 50;
+            light.shadow.camera.bottom = -50;
+            scene.add(light);
+
+            // Create sphere billboard with initial placeholder data
+            createSphereBillboard();
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Custom orbit controls event listeners
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            renderer.domElement.addEventListener('wheel', onMouseWheel);
+            renderer.domElement.addEventListener('touchstart', onTouchStart);
+            renderer.domElement.addEventListener('touchmove', onTouchMove);
+            renderer.domElement.addEventListener('touchend', onTouchEnd);
+
+            document.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('resize', onWindowResize);
+
+            // Fetch real data and update billboards
+            fetchAndUpdateData();
+        }
+
+        async function fetchAndUpdateData() {
+            try {
+                // Fetch Fear & Greed data
+                const fngData = await getFearNGreed();
+                const fearGreedValue = fngData?.data?.[0]?.value || 'N/A';
+                const fearGreedClassification = fngData?.data?.[0]?.value_classification || 'Neutral';
+
+                // Hardcoded values for other metrics
+                const ethDominance = '11.1';
+                const totalMarketCapInBillions = '2.1';
+                const btcDominance = '60.7';
+
+                // Update billboards with real data
+                updateBillboardData([
+                    { 
+                        text: `Fear & Greed: ${fearGreedValue}`, 
+                        subtext: fearGreedClassification,
+                        position: [0, 25, 0], 
+                        color: getFearGreedColor(fearGreedValue), 
+                        isTopBillboard: true 
+                    },
+                    { 
+                        text: "ETHD (%)", 
+                        subtext: ethDominance, 
+                        position: [-20, 0, 0], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    },
+                    { 
+                        text: "Total MCAP (B)", 
+                        subtext: totalMarketCapInBillions, 
+                        position: [0, 0, 20], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    },
+                    { 
+                        text: "BTCD (%)", 
+                        subtext: btcDominance, 
+                        position: [20, 0, 0], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    }
+                ]);
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                // Keep default values if API calls fail
+            }
+        }
+
+        function getFearGreedColor(value) {
+            const numValue = parseInt(value);
+            if (numValue >= 0 && numValue <= 25) return 0xFF0000; // Extreme Fear - Red
+            if (numValue <= 45) return 0xFF6600; // Fear - Orange
+            if (numValue <= 55) return 0xFFFF00; // Neutral - Yellow
+            if (numValue <= 75) return 0x00FF00; // Greed - Green
+            return 0x00FF00; // Extreme Greed - Green
+        }
+
+        function updateBillboardData(newData) {
+            // Remove existing billboards
+            billboards.forEach(billboard => {
+                scene.remove(billboard);
+            });
+            billboards = [];
+
+            // Create new billboards with updated data
+            newData.forEach(data => {
+                const billboard = createTextBillboard(data.text, data.subtext, data.position, data.color, data.isTopBillboard);
+                billboards.push(billboard);
+            });
+        }
+
+        function createSphereBillboard() {
+            // Create main sphere
+            const sphereGeometry = new THREE.SphereGeometry(15, 32, 32);
+            const sphereMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x66aaff,
+                transparent: true,
+                opacity: 0.3
+            });
+            sphereBillboard = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            sphereBillboard.position.set(0, 0, 0);
+            sphereBillboard.castShadow = true;
+            sphereBillboard.receiveShadow = true;
+            scene.add(sphereBillboard);
+
+            // Create initial billboards with placeholder data
+            const billboardData = [
+                { text: "Fear & Greed: Loading...", position: [0, 25, 0], color: 0x8B4513, isTopBillboard: true },
+                { text: "ETHD (%)", subtext: "Loading...", position: [-20, 0, 0], color: 0x666666, isTopBillboard: false },
+                { text: "Total MCAP (B)", subtext: "Loading...", position: [0, 0, 20], color: 0x666666, isTopBillboard: false },
+                { text: "BTCD (%)", subtext: "Loading...", position: [20, 0, 0], color: 0x666666, isTopBillboard: false }
+            ];
+
+            billboardData.forEach(data => {
+                const billboard = createTextBillboard(data.text, data.subtext, data.position, data.color, data.isTopBillboard);
+                billboards.push(billboard);
+            });
+        }
+
+        function createTextBillboard(text, subtext, position, color, isTopBillboard) {
+            // Create canvas for text
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 128;
+            
+            // Set background
+            context.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Set text properties
+            context.fillStyle = 'white';
+            context.font = 'bold 24px Arial';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            
+            // Draw main text
+            context.fillText(text, canvas.width / 2, canvas.height / 2 - 10);
+            
+            // Draw subtext if provided
+            if (subtext) {
+                context.font = 'bold 32px Arial';
+                context.fillText(subtext, canvas.width / 2, canvas.height / 2 + 20);
+            }
+            
+            // Create texture from canvas
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            
+            // Create plane geometry for billboard
+            const planeGeometry = new THREE.PlaneGeometry(8, 4);
+            const planeMaterial = new THREE.MeshBasicMaterial({ 
+                map: texture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+            
+            const billboard = new THREE.Mesh(planeGeometry, planeMaterial);
+            billboard.position.set(position[0], position[1], position[2]);
+            billboard.castShadow = true;
+            billboard.receiveShadow = true;
+            
+            // Make billboard always face camera only if it's the top billboard
+            if (isTopBillboard) {
+                billboard.userData = { isBillboard: true };
+            } else {
+                // Rotate side billboards to face outward from the sphere
+                if (position[0] < 0) { // Left side (ETHD)
+                    billboard.rotation.y = -Math.PI / 2;
+                } else if (position[0] > 0) { // Right side (BTCD)
+                    billboard.rotation.y = Math.PI / 2;
+                } else if (position[2] > 0) { // Front side (Total MCAP)
+                    billboard.rotation.y = 0;
+                }
+            }
+            
+            scene.add(billboard);
+            return billboard;
+        }
+
+        // Custom orbit controls functions
+        function onMouseDown(event) {
+            event.preventDefault();
+            isMouseDown = true;
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        }
+
+        function onMouseMove(event) {
+            if (!isMouseDown) return;
+            
+            const deltaX = event.clientX - mouseX;
+            const deltaY = event.clientY - mouseY;
+            
+            targetRotationY -= deltaX * 0.01;
+            targetRotationX += deltaY * 0.01;
+            
+            // Limit vertical rotation
+            targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+            
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        }
+
+        function onMouseUp(event) {
+            isMouseDown = false;
+        }
+
+        function onMouseWheel(event) {
+            event.preventDefault();
+            const zoomSpeed = 0.1;
+            targetDistance += event.deltaY * zoomSpeed;
+            targetDistance = Math.max(20, Math.min(200, targetDistance));
+        }
+
+        function onTouchStart(event) {
+            if (event.touches.length === 1) {
+                isMouseDown = true;
+                mouseX = event.touches[0].clientX;
+                mouseY = event.touches[0].clientY;
+            }
+        }
+
+        function onTouchMove(event) {
+            if (!isMouseDown || event.touches.length !== 1) return;
+            
+            const deltaX = event.touches[0].clientX - mouseX;
+            const deltaY = event.touches[0].clientY - mouseY;
+            
+            targetRotationY -= deltaX * 0.01;
+            targetRotationX += deltaY * 0.01;
+            
+            targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+            
+            mouseX = event.touches[0].clientX;
+            mouseY = event.touches[0].clientY;
+        }
+
+        function onTouchEnd(event) {
+            isMouseDown = false;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onPointerMove(event) {
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function render() {
+            // Smooth camera rotation
+            rotationX += (targetRotationX - rotationX) * 0.1;
+            rotationY += (targetRotationY - rotationY) * 0.1;
+            distance += (targetDistance - distance) * 0.1;
+
+            // Update camera position
+            camera.position.x = distance * Math.sin(rotationY) * Math.cos(rotationX);
+            camera.position.y = distance * Math.sin(rotationX);
+            camera.position.z = distance * Math.cos(rotationY) * Math.cos(rotationX);
+            
+            camera.lookAt(scene.position);
+
+            // Make billboards always face camera
+            scene.children.forEach(child => {
+                if (child.userData && child.userData.isBillboard) {
+                    child.lookAt(camera.position);
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
