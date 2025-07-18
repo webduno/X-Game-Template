@@ -127,3 +127,52 @@ export async function fetchPostVirtualOrder(dataPack) {
   }
   return true
 }
+
+export async function getTopCoinsByVolume() {
+  try {
+    const response = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+    
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    
+    const data = await response.json();
+    
+    // List of stablecoins to exclude
+    const stablecoins = [
+      'USDT', 'USDC', 'BUSD', 'DAI', 'TUSD', 'FRAX', 'USDP', 'USDD', 
+      'GUSD', 'LUSD', 'USDK', 'USDN', 'USDJ'
+    ];
+    
+    // Filter out pairs that don't end with USDT (to focus on USD pairs)
+    const usdtPairs = data.filter(item => item.symbol.endsWith('USDT'));
+    
+    // Filter out stablecoins
+    const nonStablecoinPairs = usdtPairs.filter(item => {
+      const symbol = item.symbol.replace('USDT', '');
+      return !stablecoins.includes(symbol);
+    });
+    
+    // Sort by quoteVolume (volume in USDT) in descending order
+    const sortedByVolume = nonStablecoinPairs.sort((a, b) => {
+      const volumeA = parseFloat(a.quoteVolume) || 0;
+      const volumeB = parseFloat(b.quoteVolume) || 0;
+      return volumeB - volumeA;
+    });
+    
+    // Get top 10 coins
+    const top10 = sortedByVolume.slice(0, 10);
+    
+    // Format the data for display
+    return top10.map(coin => ({
+        symbol: coin.symbol.replace('USDT', ''),
+        volume: parseFloat(coin.quoteVolume),
+        priceChangePercent: parseFloat(coin.priceChangePercent),
+        lastPrice: parseFloat(coin.lastPrice)
+    }));
+    
+  } catch (error) {
+    console.error('Error fetching Binance data:', error);
+    return [];
+  }
+}

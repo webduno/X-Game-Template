@@ -11,7 +11,7 @@
 		<meta property="og:title" content="3D Sphere Billboard Prototype">
 		<meta property="og:description" content="Interactive 3D Sphere Billboard Demo with Three.js">
 		<meta property="description" content="Interactive 3D Sphere Billboard Demo with Three.js">
-		<meta property="og:url" content="https://grokgames.vercel.app">
+		<meta property="og:url" content="https://grokgames.vercel.app/crypto">
 		<meta property="og:image" content="https://grokgames.vercel.app/crypto/prev.jpg">
 		<meta property="og:image:width" content="1200">
 		<meta property="og:image:height" content="630">
@@ -26,12 +26,12 @@
 		<meta name="twitter:site" content="@webduno">
 		<meta name="twitter:title" content="3D Sphere Billboard Prototype">
 		<meta name="twitter:description" content="Interactive 3D Sphere Billboard Demo with Three.js">
-		<meta name="twitter:url" content="https://grokgames.vercel.app">
+		<meta name="twitter:url" content="https://grokgames.vercel.app/crypto">
 		<meta name="twitter:image" content="https://grokgames.vercel.app/crypto/prev.jpg">
 		<meta name="twitter:image:width" content="1200">
 		<meta name="twitter:image:height" content="630">
 		<meta name="twitter:image:alt" content="3D Sphere Billboard Prototype">
-		<meta name="twitter:player" content="https://grokgames.vercel.app">
+		<meta name="twitter:player" content="https://grokgames.vercel.app/crypto">
 		<meta name="twitter:player:width" content="480">
 		<meta name="twitter:player:height" content="480">
 		<meta name="twitter:app:name:iphone" content="Webduno">
@@ -77,6 +77,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.178.0/three.module.js" type="module"></script>
 
     <script type="module">
+        // Import API functions
+        import { getFearNGreed } from 'https://grokgames.vercel.app/crypto/fng.js';
+
         // Wait a moment for import map to be processed
         await new Promise(resolve => setTimeout(resolve, 100));
         
@@ -84,11 +87,32 @@
 
         let container;
         let camera, scene, renderer;
-        let theta = 0;
         let sphereBillboard;
+        let billboards = [];
+        let billboardBoxes = []; // Add array for billboard boxes
+        let dataSwitch = null; // Add switch reference
+        let switchBase = null; // 3D switch base
+        let switchSlider = null; // 3D switch slider
+        let raycaster = new THREE.Raycaster(); // For click detection
+        let mouse = new THREE.Vector2(); // For mouse position
+        let particles = null; // Particle system
+        let particleMaterial = null; // Particle material
+        let torus1 = null; // First torus
+        let torus2 = null; // Second torus
+
+        // Orbit controls variables
+        let isMouseDown = false;
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let rotationX = 0;
+        let rotationY = 0;
+        let distance = 50;
+        let targetDistance = 50;
+        let isSwitchOn = false; // Track switch state
 
         const pointer = { x: 0, y: 0 };
-        const radius = 100;
 
         init();
         animate();
@@ -98,8 +122,7 @@
             document.body.appendChild(container);
 
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
-            camera.position.y = 20;
-            camera.position.z = 50;
+            camera.position.set(0, 20, 50);
 
             scene = new THREE.Scene();
             
@@ -109,8 +132,8 @@
             canvas.height = 2;
             const context = canvas.getContext('2d');
             const gradient = context.createLinearGradient(0, 0, 2, 2);
-            gradient.addColorStop(0, '#ffbb66');
-            gradient.addColorStop(1, '#66aaff');
+            gradient.addColorStop(0, '#000000');
+            gradient.addColorStop(1, '#222222');
             context.fillStyle = gradient;
             context.fillRect(0, 0, 2, 2);
             
@@ -135,8 +158,14 @@
             light.shadow.camera.bottom = -50;
             scene.add(light);
 
-            // Create sphere billboard
+            // Create sphere billboard with initial placeholder data
             createSphereBillboard();
+
+            // Create particle system
+            createParticles();
+
+            // Create torus objects
+            createTorusObjects();
 
             renderer = new THREE.WebGLRenderer();
             renderer.setPixelRatio(window.devicePixelRatio);
@@ -145,42 +174,387 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             container.appendChild(renderer.domElement);
 
+            // Custom orbit controls event listeners
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            renderer.domElement.addEventListener('wheel', onMouseWheel);
+            renderer.domElement.addEventListener('touchstart', onTouchStart);
+            renderer.domElement.addEventListener('touchmove', onTouchMove);
+            renderer.domElement.addEventListener('touchend', onTouchEnd);
+
             document.addEventListener('mousemove', onPointerMove);
             window.addEventListener('resize', onWindowResize);
+
+            // Create 3D switch
+            create3DSwitch();
+
+            // Fetch real data and update billboards
+            fetchAndUpdateData();
+        }
+
+        async function fetchAndUpdateData() {
+            // Only fetch data if switch is on
+            if (!isSwitchOn) {
+                return;
+            }
+            
+            try {
+                // Fetch Fear & Greed data
+                const fngData = await getFearNGreed();
+                const fearGreedValue = fngData?.data?.[0]?.value || 'N/A';
+                const fearGreedClassification = fngData?.data?.[0]?.value_classification || 'Neutral';
+
+                // Hardcoded values for other metrics
+                const ethDominance = '11.1';
+                const totalMarketCapInBillions = '2.1';
+                const btcDominance = '60.7';
+
+                // Update billboards with real data
+                updateBillboardData([
+                    { 
+                        text: `Fear & Greed: ${fearGreedValue}`, 
+                        subtext: fearGreedClassification,
+                        position: [0, 23, 0], 
+                        color: getFearGreedColor(fearGreedValue), 
+                        isTopBillboard: true 
+                    },
+                    { 
+                        text: "ETHD (%)", 
+                        subtext: ethDominance, 
+                        position: [-20, 0, 0], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    },
+                    { 
+                        text: "text", 
+                        subtext: "text", 
+                        position: [-14, 0, 14], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    },
+                    // { 
+                    //     text: "Total MCAP (B)", 
+                    //     subtext: totalMarketCapInBillions, 
+                    //     position: [0, 0, 20], 
+                    //     color: 0x666666, 
+                    //     isTopBillboard: false 
+                    // },
+                    { 
+                        text: "text", 
+                        subtext: "text", 
+                        position: [14, 0, 14], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    },
+                    { 
+                        text: "BTCD (%)", 
+                        subtext: btcDominance, 
+                        position: [20, 0, 0], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    },
+                    { 
+                        text: "text", 
+                        subtext: "text", 
+                        position: [14, 0, -14], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    },
+                    { 
+                        text: "text", 
+                        subtext: "text", 
+                        position: [0, 0, -20], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    },
+                    { 
+                        text: "text", 
+                        subtext: "text", 
+                        position: [-14, 0, -14], 
+                        color: 0x666666, 
+                        isTopBillboard: false 
+                    }
+                ]);
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                // Keep default values if API calls fail
+            }
+        }
+
+        function onSwitchToggle() {
+            isSwitchOn = !isSwitchOn;
+            
+            // Update particle visibility
+            if (particles) {
+                particles.visible = isSwitchOn;
+                console.log('Particles visibility set to:', isSwitchOn);
+            }
+            
+            if (isSwitchOn) {
+                // Switch turned on - fetch live data
+                fetchAndUpdateData();
+            } else {
+                // Switch turned off - show placeholder data
+                updateBillboardData([
+                    { text: "Fear & Greed: Off", subtext: "Toggle for live data", position: [0, 23, 0], color: 0x8B4513, isTopBillboard: true },
+                    { text: "ETHD (%)", subtext: "Off", position: [-20, 0, 0], color: 0x666666, isTopBillboard: false },
+                    { text: "text", subtext: "text", position: [-14, 0, 14], color: 0x666666, isTopBillboard: false },
+                    // { text: "Total MCAP (B)", subtext: "Off", position: [0, 0, 20], color: 0x666666, isTopBillboard: false },
+                    { text: "text", subtext: "text", position: [14, 0, 14], color: 0x666666, isTopBillboard: false },
+                    { text: "BTCD (%)", subtext: "Off", position: [20, 0, 0], color: 0x666666, isTopBillboard: false },
+                    { text: "text", subtext: "text", position: [14, 0, -14], color: 0x666666, isTopBillboard: false },
+                    { text: "text", subtext: "text", position: [0, 0, -20], color: 0x666666, isTopBillboard: false },
+                    { text: "text", subtext: "text", position: [-14, 0, -14], color: 0x666666, isTopBillboard: false }
+                ]);
+            }
+        }
+
+        function getFearGreedColor(value) {
+            const numValue = parseInt(value);
+            if (numValue >= 0 && numValue <= 25) return 0x660000; // Extreme Fear - Red
+            if (numValue <= 45) return 0x666600; // Fear - Orange
+            if (numValue <= 55) return 0x666600; // Neutral - Yellow
+            if (numValue <= 75) return 0x006600; // Greed - Green
+            return 0x006600; // Extreme Greed - Green
+        }
+
+        function updateBillboardData(newData) {
+            // Remove existing billboards and boxes
+            billboards.forEach(billboard => {
+                scene.remove(billboard);
+            });
+            billboardBoxes.forEach(box => {
+                scene.remove(box);
+            });
+            billboards = [];
+            billboardBoxes = [];
+
+            // Create new billboards with updated data
+            newData.forEach(data => {
+                const billboard = createTextBillboard(data.text, data.subtext, data.position, data.color, data.isTopBillboard);
+                billboards.push(billboard);
+                
+                // Only create box for non-top billboards
+                if (!data.isTopBillboard) {
+                    const box = createBillboardBox(data.position, data.isTopBillboard);
+                    billboardBoxes.push(box);
+                }
+            });
         }
 
         function createSphereBillboard() {
-            // Create main sphere
-            const sphereGeometry = new THREE.SphereGeometry(15, 32, 32);
-            const sphereMaterial = new THREE.MeshLambertMaterial({ 
-                color: 0x66aaff,
-                transparent: true,
-                opacity: 0.3
+            // Create main sphere as wireframe
+            const sphereGeometry = new THREE.SphereGeometry(19.9, 12, 12,Math.PI,Math.PI);
+            const sphereMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x90EE90,
+                wireframe: true,
+                // transparent: true,
+                // opacity: 0.8
             });
             sphereBillboard = new THREE.Mesh(sphereGeometry, sphereMaterial);
             sphereBillboard.position.set(0, 0, 0);
-            sphereBillboard.castShadow = true;
-            sphereBillboard.receiveShadow = true;
+            sphereBillboard.castShadow = false;
+            sphereBillboard.rotation.x = Math.PI / 2;
+            sphereBillboard.receiveShadow = false;
             scene.add(sphereBillboard);
 
-            // Create text billboards around the sphere
+
+
+
+            const sphereGeometry2 = new THREE.SphereGeometry(19.95, 12, 12,Math.PI,Math.PI);
+            const sphereMaterial2 = new THREE.MeshBasicMaterial({ 
+                color: 0x222222,
+                side: 1,
+                // wireframe: true,
+                // transparent: true,
+                // opacity: 0.8
+            });
+            sphereBillboard = new THREE.Mesh(sphereGeometry2, sphereMaterial2);
+            sphereBillboard.position.set(0, 0, 0);
+            sphereBillboard.rotation.x = -Math.PI / 2;
+            sphereBillboard.castShadow = false;
+            sphereBillboard.receiveShadow = false;
+            scene.add(sphereBillboard);
+
+
+
+
+
+            // Create initial billboards with placeholder data
             const billboardData = [
-                { text: "Fear & Greed: 73", position: [0, 25, 0], color: 0x8B4513 },
-                { text: "ETHD (%)", subtext: "11.1", position: [-20, 0, 0], color: 0x666666 },
-                { text: "Total MCAP (B)", subtext: "3870", position: [0, 0, 20], color: 0x666666 },
-                { text: "BTCD (%)", subtext: "60.7", position: [20, 0, 0], color: 0x666666 }
+                { text: "Fear & Greed: Loading...", position: [0, 25, 0], color: 0x8B4513, isTopBillboard: true },
+                { text: "ETHD (%)", subtext: "41%", position: [-14, 0, 14], color: 0x666666, isTopBillboard: false },
+                // { text: "text", subtext: "text", position: [-14, 0, 14], color: 0x666666, isTopBillboard: false },
+                { text: "SCROLL TO", subtext: "ZOOM IN/OUT", position: [0, -6, 20], color: 0x0022ff, isTopBillboard: false },
+                { text: "DRAG TO", subtext: "ROTATE", position: [0, 6, 20], color: 0xff2200, isTopBillboard: false },
+                // { text: "text", subtext: "text", position: [14, 0, 14], color: 0x666666, isTopBillboard: false },
+                { text: "BTCD (%)", subtext: "59%", position: [14, 0, 14], color: 0x666666, isTopBillboard: false },
+                { text: "text", subtext: "text", position: [14, 0, -14], color: 0x666666, isTopBillboard: false },
+                { text: "text", subtext: "text", position: [-14, 0, -14], color: 0x666666, isTopBillboard: false },
+                { text: "TOTAL VOLUME", subtext: "$102.7B", position: [20, 0, 0], color: 0x666666, isTopBillboard: false },
+                { text: "ALT VOLUME", subtext: "$22.1B", position: [-20, 0, 0], color: 0x666666, isTopBillboard: false }
             ];
 
             billboardData.forEach(data => {
-                createTextBillboard(data.text, data.subtext, data.position, data.color);
+                const billboard = createTextBillboard(data.text, data.subtext, data.position, data.color, data.isTopBillboard);
+                billboards.push(billboard);
+                
+                // Only create box for non-top billboards
+                if (!data.isTopBillboard) {
+                    const box = createBillboardBox(data.position, data.isTopBillboard);
+                    billboardBoxes.push(box);
+                }
             });
         }
+        function createParticles() {
+    // Create particle geometry
+    const particleCount = 300;
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const initialColors = []; // Store initial colors for reference
+    
+    // Create particles in a sphere pattern
+    for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        
+        // Random position within sphere radius 12 (smaller than wireframe)
+        const radius = Math.random() * 12;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(Math.random() * 2 - 1);
+        
+        positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+        positions[i3 + 2] = radius * Math.cos(phi);
+        
+        // Brighter, more vibrant colors
+        const r = Math.random() * 0.8 + 0.2; // Red: 0.2-1.0
+        const g = Math.random() * 0.8 + 0.2; // Green: 0.2-1.0
+        const b = Math.random() * 0.8 + 0.2; // Blue: 0.2-1.0
+        colors[i3] = r;
+        colors[i3 + 1] = g;
+        colors[i3 + 2] = b;
+        
+        // Store initial colors
+        initialColors.push({ r, g, b });
+    }
+    
+    const particleGeometry = new THREE.BufferGeometry();
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    // Use standard PointsMaterial
+    particleMaterial = new THREE.PointsMaterial({
+        size: 3.0,
+        transparent: true,
+        opacity: 0.8,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending
+    });
+    
+    particles = new THREE.Points(particleGeometry, particleMaterial);
+    particles.position.set(0, 0, 0);
+    particles.visible = false; // Start hidden
+    particles.userData = { initialColors }; // Store initial colors in userData
+    scene.add(particles);
+    
+    console.log('Particles created:', particles);
+    console.log('Particle count:', particleCount);
+}
 
-        function createTextBillboard(text, subtext, position, color) {
+
+        function createTorusObjects() {
+            
+            // Create first torus (larger, outer ring)
+            const torusGeometry0 = new THREE.TorusGeometry(19.25, .95, 8, 24);
+            const torusMaterial0 = new THREE.MeshStandardMaterial({ 
+                color: 0x555555,
+                // wireframe: true,
+                // transparent: true,
+                // opacity: 0.6
+            });
+            const torus0 = new THREE.Mesh(torusGeometry0, torusMaterial0);
+            torus0.position.set(0, 0, 0);
+            torus0.rotation.x = Math.PI / 2; // Rotate to be horizontal
+            torus0.castShadow = false;
+            torus0.receiveShadow = false;
+            scene.add(torus0);
+
+
+
+            
+            
+            // // Create first torus (larger, outer ring)
+            // const torusGeometrya = new THREE.TorusGeometry(12, .95, 8, 24);
+            // const torusMateriala = new THREE.MeshStandardMaterial({ 
+            //     color: 0x555555,
+            //     // wireframe: true,
+            //     // transparent: true,
+            //     // opacity: 0.6
+            // });
+            // const torusa = new THREE.Mesh(torusGeometrya, torusMateriala);
+            // torusa.position.set(0, 15, 0);
+            // torusa.rotation.x = Math.PI / 2; // Rotate to be horizontal
+            // torus0.castShadow = false;
+            // torusa.receiveShadow = false;
+            // scene.add(torusa);
+            // Create first torus (larger, outer ring)
+            const torusGeometryb = new THREE.TorusGeometry(20, .95, 8, 24);
+            const torusMaterialb = new THREE.MeshStandardMaterial({ 
+                color: 0x555555,
+                // wireframe: true,
+                // transparent: true,
+                // opacity: 0.6
+            });
+            const torusb = new THREE.Mesh(torusGeometryb, torusMaterialb);
+            torusb.position.set(0, -12, 0);
+            torusb.scale.set(1, 1, 5);
+            torusb.rotation.x = Math.PI / 2; // Rotate to be horizontal
+            torus0.castShadow = false;
+            torusb.receiveShadow = false;
+            scene.add(torusb);
+
+
+
+            
+            // Create first torus (larger, outer ring)
+            const torusGeometry1 = new THREE.TorusGeometry(19.25, .75, 8, 24);
+            const torusMaterial1 = new THREE.MeshStandardMaterial({ 
+                color: 0x55ff55,
+                // wireframe: true,
+                // transparent: true,
+                // opacity: 0.6
+            });
+            torus1 = new THREE.Mesh(torusGeometry1, torusMaterial1);
+            torus1.position.set(0, 0, 0);
+            torus1.rotation.x = Math.PI / 2; // Rotate to be horizontal
+            torus1.castShadow = false;
+            torus1.receiveShadow = false;
+            scene.add(torus1);
+
+            // Create second torus (smaller, inner ring)
+            const torusGeometry2 = new THREE.TorusGeometry(19.5, .2, 6, 20);
+            const torusMaterial2 = new THREE.MeshStandardMaterial({ 
+                color: 0x55ff55,
+                // wireframe: true,
+                // transparent: true,
+                // opacity: 0.7
+            });
+            torus2 = new THREE.Mesh(torusGeometry2, torusMaterial2);
+            torus2.position.set(0, 0, 0);
+            torus2.rotation.x = Math.PI / 2; // Rotate to be horizontal
+            torus2.rotation.z = Math.PI / 4; // Rotate 45 degrees for visual interest
+            torus2.castShadow = false;
+            torus2.receiveShadow = false;
+            scene.add(torus2);
+        }
+
+        function createTextBillboard(text, subtext, position, color, isTopBillboard) {
             // Create canvas for text
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
-            canvas.width = 256;
+            canvas.width = isTopBillboard ? 512 : 256; // 2x wider for top billboard
             canvas.height = 128;
             
             // Set background
@@ -207,7 +581,7 @@
             texture.needsUpdate = true;
             
             // Create plane geometry for billboard
-            const planeGeometry = new THREE.PlaneGeometry(8, 4);
+            const planeGeometry = new THREE.PlaneGeometry(isTopBillboard ? 16 : 8, 4); // 2x wider for top billboard
             const planeMaterial = new THREE.MeshBasicMaterial({ 
                 map: texture,
                 transparent: true,
@@ -215,19 +589,234 @@
             });
             
             const billboard = new THREE.Mesh(planeGeometry, planeMaterial);
-            billboard.position.set(position[0], position[1], position[2]);
+            billboard.position.set(position[0]*1.02, position[1], position[2]*1.02);
             billboard.castShadow = true;
             billboard.receiveShadow = true;
             
-            // Make billboard always face camera
-            billboard.userData = { isBillboard: true };
+            // Make billboard always face camera only if it's the top billboard
+            if (isTopBillboard) {
+                billboard.userData = { isBillboard: true };
+            } else {
+                // Rotate side billboards to face outward from the sphere
+                if (position[0] < 0 && position[2] === 0) { // Left side (ETHD)
+                    billboard.rotation.y = -Math.PI / 2;
+                } else if (position[0] > 0 && position[2] === 0) { // Right side (BTCD)
+                    billboard.rotation.y = Math.PI / 2;
+                } else if (position[0] === 0 && position[2] > 0) { // Front side (Total MCAP)
+                    billboard.rotation.y = 0;
+                } else if (position[0] === 0 && position[2] < 0) { // Back side
+                    billboard.rotation.y = Math.PI;
+                } else if (position[0] < 0 && position[2] > 0) { // Front-left diagonal
+                    billboard.rotation.y = -Math.PI / 4;
+                } else if (position[0] > 0 && position[2] > 0) { // Front-right diagonal
+                    billboard.rotation.y = Math.PI / 4;
+                } else if (position[0] > 0 && position[2] < 0) { // Back-right diagonal
+                    billboard.rotation.y = 3 * Math.PI / 4;
+                } else if (position[0] < 0 && position[2] < 0) { // Back-left diagonal
+                    billboard.rotation.y = -3 * Math.PI / 4;
+                }
+            }
             
             scene.add(billboard);
+            return billboard;
+        }
+
+        function createBillboardBox(position, isTopBillboard) {
+            // Create box with dimensions matching the billboard (8x4) plus thickness
+            const boxGeometry = new THREE.BoxGeometry(10.5, 5.5, 0.5); // Slightly larger than billboard with thickness
+            const boxMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x777777, // Dark gray box
+                transparent: true,
+                // opacity: 0.8
+            });
+            const box = new THREE.Mesh(boxGeometry, boxMaterial);
+            
+            // Position box slightly behind the billboard
+            const offset = (isTopBillboard ? 0.3 : 0.3)
+            box.position.set(position[0], position[1], position[2] - offset);
+            box.castShadow = true;
+            box.receiveShadow = true;
+
+            // Rotate box to match billboard orientation
+            if (!isTopBillboard) {
+                if (position[0] < 0 && position[2] === 0) { // Left side (ETHD)
+                    box.rotation.y = -Math.PI / 2;
+                } else if (position[0] > 0 && position[2] === 0) { // Right side (BTCD)
+                    box.rotation.y = Math.PI / 2;
+                } else if (position[0] === 0 && position[2] > 0) { // Front side (Total MCAP)
+                    box.rotation.y = 0;
+                } else if (position[0] === 0 && position[2] < 0) { // Back side
+                    box.rotation.y = Math.PI;
+                } else if (position[0] < 0 && position[2] > 0) { // Front-left diagonal
+                    box.rotation.y = -Math.PI / 4;
+                } else if (position[0] > 0 && position[2] > 0) { // Front-right diagonal
+                    box.rotation.y = Math.PI / 4;
+                } else if (position[0] > 0 && position[2] < 0) { // Back-right diagonal
+                    box.rotation.y = 3 * Math.PI / 4;
+                } else if (position[0] < 0 && position[2] < 0) { // Back-left diagonal
+                    box.rotation.y = -3 * Math.PI / 4;
+                }
+            }
+
+            scene.add(box);
+            return box;
+        }
+
+        function create3DSwitch() {
+            // Create switch base (outer box)
+            const baseGeometry = new THREE.BoxGeometry(9, 8, 3);
+            const baseMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0xffffff, // Dark gray
+                transparent: true,
+                // opacity: 0.9
+            });
+            switchBase = new THREE.Mesh(baseGeometry, baseMaterial);
+            switchBase.position.set(0, 0, -20.5); // Position below the sphere
+            switchBase.castShadow = true;
+            switchBase.receiveShadow = true;
+            switchBase.userData = { isSwitch: true };
+            scene.add(switchBase);
+
+            // Create switch slider (inner box)
+            const sliderGeometry = new THREE.BoxGeometry(3.26, 3.26, 2.4);
+            const sliderMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0xcccccc, // Light gray
+                transparent: true,
+                // opacity: 0.9
+            });
+            switchSlider = new THREE.Mesh(sliderGeometry, sliderMaterial);
+            switchSlider.position.set(-2.4, 0, -21.5); // Start in "off" position (left side)
+            switchSlider.castShadow = true;
+            switchSlider.receiveShadow = true;
+            switchSlider.userData = { isSwitch: true };
+            scene.add(switchSlider);
+
+            // Create ON text
+            const onCanvas = document.createElement('canvas');
+            const onContext = onCanvas.getContext('2d');
+            onCanvas.width = 64;
+            onCanvas.height = 32;
+            onContext.fillStyle = '#00ff00'; // Green for ON
+            onContext.fillRect(0, 0, onCanvas.width, onCanvas.height);
+            onContext.fillStyle = 'white';
+            onContext.font = 'bold 16px Arial';
+            onContext.textAlign = 'center';
+            onContext.textBaseline = 'middle';
+            onContext.fillText('ON', onCanvas.width / 2, onCanvas.height / 2);
+            
+            const onTexture = new THREE.CanvasTexture(onCanvas);
+            const onGeometry = new THREE.PlaneGeometry(2, 1);
+            const onMaterial = new THREE.MeshBasicMaterial({ 
+                map: onTexture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+            const onText = new THREE.Mesh(onGeometry, onMaterial);
+            onText.position.set(-2.5, 0, -22.2); // Right side of switch
+            onText.rotation.y = Math.PI;
+            scene.add(onText);
+
+            // Create OFF text
+            const offCanvas = document.createElement('canvas');
+            const offContext = offCanvas.getContext('2d');
+            offCanvas.width = 64;
+            offCanvas.height = 32;
+            offContext.fillStyle = '#ff0000'; // Red for OFF
+            offContext.fillRect(0, 0, offCanvas.width, offCanvas.height);
+            offContext.fillStyle = 'white';
+            offContext.font = 'bold 16px Arial';
+            offContext.textAlign = 'center';
+            offContext.textBaseline = 'middle';
+            offContext.fillText('OFF', offCanvas.width / 2, offCanvas.height / 2);
+            
+            const offTexture = new THREE.CanvasTexture(offCanvas);
+            const offGeometry = new THREE.PlaneGeometry(2, 1);
+            const offMaterial = new THREE.MeshBasicMaterial({ 
+                map: offTexture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+            const offText = new THREE.Mesh(offGeometry, offMaterial);
+            offText.position.set(2.5, 0, -22.2); // Left side of switch
+            offText.rotation.y = Math.PI;
+            scene.add(offText);
+        }
+
+        // Custom orbit controls functions
+        function onMouseDown(event) {
+            event.preventDefault();
+            isMouseDown = true;
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+            
+            // Check for switch click
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([switchBase, switchSlider]);
+            
+            if (intersects.length > 0) {
+                onSwitchToggle();
+            }
+        }
+
+        function onMouseMove(event) {
+            if (!isMouseDown) return;
+            
+            const deltaX = event.clientX - mouseX;
+            const deltaY = event.clientY - mouseY;
+            
+            targetRotationY -= deltaX * 0.01;
+            targetRotationX += deltaY * 0.01;
+            
+            // Limit vertical rotation
+            targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+            
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        }
+
+        function onMouseUp(event) {
+            isMouseDown = false;
+        }
+
+        function onMouseWheel(event) {
+            event.preventDefault();
+            const zoomSpeed = 0.1;
+            targetDistance += event.deltaY * zoomSpeed;
+            targetDistance = Math.max(20, Math.min(200, targetDistance));
+        }
+
+        function onTouchStart(event) {
+            if (event.touches.length === 1) {
+                isMouseDown = true;
+                mouseX = event.touches[0].clientX;
+                mouseY = event.touches[0].clientY;
+            }
+        }
+
+        function onTouchMove(event) {
+            if (!isMouseDown || event.touches.length !== 1) return;
+            
+            const deltaX = event.touches[0].clientX - mouseX;
+            const deltaY = event.touches[0].clientY - mouseY;
+            
+            targetRotationY -= deltaX * 0.01;
+            targetRotationX += deltaY * 0.01;
+            
+            targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+            
+            mouseX = event.touches[0].clientX;
+            mouseY = event.touches[0].clientY;
+        }
+
+        function onTouchEnd(event) {
+            isMouseDown = false;
         }
 
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
-            camera.fov = 90;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
@@ -241,22 +830,67 @@
             requestAnimationFrame(animate);
             render();
         }
-
         function render() {
-            theta += 0.05;
-            camera.position.x = -(radius * Math.sin(THREE.MathUtils.degToRad(theta)));
-            camera.lookAt(scene.position);
-            camera.updateMatrixWorld();
+    // Smooth camera rotation
+    rotationX += (targetRotationX - rotationX) * 0.1;
+    rotationY += (targetRotationY - rotationY) * 0.1;
+    distance += (targetDistance - distance) * 0.1;
 
-            // Make billboards always face camera
-            scene.children.forEach(child => {
-                if (child.userData && child.userData.isBillboard) {
-                    child.lookAt(camera.position);
-                }
-            });
+    // Update camera position
+    camera.position.x = distance * Math.sin(rotationY) * Math.cos(rotationX);
+    camera.position.y = distance * Math.sin(rotationX);
+    camera.position.z = distance * Math.cos(rotationY) * Math.cos(rotationX);
+    
+    camera.lookAt(scene.position);
 
-            renderer.render(scene, camera);
+    // Animate switch slider
+    if (switchSlider) {
+        const targetX = isSwitchOn ? 2.4 : -2.4; // Move right when on, left when off
+        const targetRotation = isSwitchOn ? Math.PI : 0; // Rotate when on
+        
+        switchSlider.position.x += (targetX - switchSlider.position.x) * 0.1;
+        switchSlider.rotation.y += (targetRotation - switchSlider.rotation.y) * 0.1;
+    }
+
+    // Animate torus rotation
+    if (torus1) {
+        torus1.rotation.x += 0.005; // Slow rotation
+        torus1.rotation.y += 0.002; // Slow rotation
+    }
+    if (torus2) {
+        torus2.rotation.y -= 0.008; // Counter-rotation, slightly faster
+    }
+
+    // Animate particle colors
+    if (particles && particles.visible) {
+        const time = performance.now() * 0.001; // Get time in seconds
+        const colors = particles.geometry.attributes.color.array;
+        const initialColors = particles.userData.initialColors;
+        
+        for (let i = 0; i < initialColors.length; i++) {
+            const i3 = i * 3;
+            const { r, g, b } = initialColors[i];
+            
+            // Create pulsating effect with sine waves, offset for each color channel
+            colors[i3] = r * (0.5 + 0.5 * Math.sin(time + i * 0.1)); // Red
+            colors[i3 + 1] = g * (0.5 + 0.5 * Math.sin(time + 0.33 + i * 0.1)); // Green
+            colors[i3 + 2] = b * (0.5 + 0.5 * Math.sin(time + 0.66 + i * 0.1)); // Blue
         }
+        
+        particles.geometry.attributes.color.needsUpdate = true; // Mark color attribute for update
+    }
+
+    // Make billboards always face camera
+    scene.children.forEach(child => {
+        if (child.userData && child.userData.isBillboard) {
+            child.lookAt(camera.position);
+        }
+    });
+
+    renderer.render(scene, camera);
+}
+
+
     </script>
 </body>
 </html>
